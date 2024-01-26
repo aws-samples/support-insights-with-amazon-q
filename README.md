@@ -1,4 +1,4 @@
-## My Project
+## Support Case Insights with Amazon Q
 
 TODO: Fill this README out!
 

@@ -1,7 +1,7 @@
-# Q Case Insights (QCI)
+# Amazon Q AWS Support Case Insights (QCI)
 
 
-This sample solution, Q Case Insights (QCI), enables analytics with Generative AI on your past or existing AWS Support Cases to derive meaningful insights based on common patterns, issues, and resolutions. [Amazon Q Business](https://docs.aws.amazon.com/amazonq/latest/business-use-dg/what-is.html) is a fully-managed, generative-AI enterprise chat assistant for natural language queries and question-answering capabilities. QCI presents the capabilities of Q Web Experience with Generative AI, providing the ability for comprehensive sentiment analysis, trend detection, root cause analysis, and predictive modeling on your AWS support cases. 
+This sample solution, Amazon Q AWS Support Case Insights (QCI), enables analytics with Generative AI on your past or existing AWS Support Cases to derive meaningful insights based on common patterns, issues, and resolutions. [Amazon Q Business](https://docs.aws.amazon.com/amazonq/latest/business-use-dg/what-is.html) is a fully-managed, generative-AI enterprise chat assistant for natural language queries and question-answering capabilities. QCI presents the capabilities of Q Web Experience with Generative AI, providing the ability for comprehensive sentiment analysis, trend detection, root cause analysis, and predictive modeling on your AWS support cases. 
 
 QCI can also get support cases across your chosen accounts using the [AWS Support API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support.html). The native capabilities of Amazon Q Business are utilized to index the AWS support case data from Amazon S3 and provide a chatbot web experience.
 
@@ -148,3 +148,6 @@ To clean up the environment you have setup:
    * S3 bucket that contains the support case data.
    * S3 bucket that contains Q Application deployment resources.
 3. Delete the case collector resources: depending on the option you have selected for deployment, delete the Stackset or delete the IAM roles and corresponding Cloudformation stack.
+
+## Disclaimer
+The sample code provided in this solution is for educational purposes only and users should thoroughly test and validate the solution before deploying it in a production environment.

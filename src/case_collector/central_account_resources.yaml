@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Master Account - Create IAM User and Attach Policy for Support Case Insights
+
+Resources:
+  SupportCaseInsightsUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: support_case_insights
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
+        - arn:aws:iam::aws:policy/AWSSupportAccess
+
+  CrossAccountSupportAPIAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CrossAccountSupportAPIAccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Resource: 'arn:aws:iam::*:role/CentralUserSupportCaseInsightsRole'
+      Users:
+        - !Ref SupportCaseInsightsUser
+
+  AWSCloudFormationStackSetAdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSCloudFormationStackSetAdministrationRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "cloudformation.amazonaws.com"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: RootPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:*
+                  - iam:PassRole
+                Resource: "*"
+  

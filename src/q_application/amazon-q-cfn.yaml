@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Custom Resource with Lambda function to deploy Amazon Q For Business Application.
+Parameters:
+  S3LambdaBucket:
+    Description: The name of the bucket that contains the zip file with the Lambda code
+    Type: String
+    Default: cfn-custom-resource-amazon-q
+  S3LambdaFunctionKey:
+    Description: The name of the ZIP files containing the Lambda function 
+    Type: String
+    Default: amazon-q-lambda.zip
+  S3LambdaLayerKey:
+    Description: The name of the ZIP package containing the layer with dependencies for the Lambda function
+    Type: String
+    Default: amazon-q-lambda-layer.zip
+  S3DataSourceBucket:
+    Description: The name of the bucket that contains the data for the data source
+    Type: String
+    Default: support-amazon-q-data
+Resources:
+  QApplicationCustomResource:
+    Type: "Custom::QBusinessApplication"
+    Properties:
+      ServiceToken: !GetAtt
+        - CustomQApplicationFunction
+        - Arn
+      Region: !Ref "AWS::Region"
+      QAppIAMRole: !GetAtt QApplicationIamRole.Arn
+  QDataSourceCustomResource:
+    Type: "Custom::QBusinessDataSource"
+    Properties:
+      ServiceToken: !GetAtt
+        - CustomQDatasourceFunction
+        - Arn
+      Region: !Ref "AWS::Region"
+      QApplicationId: !GetAtt QApplicationCustomResource.ApplicationId
+      QIndexId: !GetAtt QApplicationCustomResource.IndexId
+      QDataSourceS3Bucket: !Ref S3DataSourceBucket
+      QS3IAMRole: !GetAtt QDatasourceIamRole.Arn
+  LambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: support-q-application-lambda-layer
+      Description: Support Q Application Lambda Layer
+      Content:
+        S3Bucket: !Ref S3LambdaBucket
+        S3Key: !Ref S3LambdaLayerKey
+      CompatibleRuntimes:
+        - python3.12
+  CustomQApplicationFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        S3Bucket: !Ref S3LambdaBucket
+        S3Key: !Ref S3LambdaFunctionKey
+      Handler: amazon-q-lambda.lambda_handler
+      Role: !GetAtt "LambdaExecutionRole.Arn"
+      Runtime: python3.12
+      Timeout: 30
+      Layers:
+        - !Ref LambdaLayer
+  CustomQDatasourceFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        S3Bucket: !Ref S3LambdaBucket
+        S3Key: !Ref S3LambdaFunctionKey
+      Handler: amazon-q-lambda-datasource.lambda_handler
+      Role: !GetAtt "LambdaExecutionRole.Arn"
+      Runtime: python3.12
+      Timeout: 30
+      Layers:
+        - !Ref LambdaLayer
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                  - "qbusiness:CreateApplication"
+                  - "qbusiness:CreateDatasource"
+                  - "qbusiness:CreateIndex"
+                  - "qbusiness:CreateRetriever"
+                  - "qbusiness:DeleteApplication"
+                  - "qbusiness:DeleteDatasource"
+                  - "qbusiness:DeleteIndex"
+                  - "qbusiness:DeleteRetriever"
+                  - "qbusiness:GetApplication"
+                  - "qbusiness:GetDatasource"
+                  - "qbusiness:GetIndex"
+                  - "qbusiness:GetRetriever"
+                  - "qbusiness:UpdateApplication"
+                  - "qbusiness:UpdateDatasource"
+                  - "qbusiness:UpdateIndex"
+                  - "qbusiness:UpdateRetriever"
+                  - "qbusiness:TagResource"
+                  - "qbusiness:UntagResource"
+                  - "qbusiness:CreateWebExperience"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "iam:PassRole"
+                Resource:
+                 - !GetAtt QApplicationIamRole.Arn 
+                 - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AWS::StackName}-QDatasourceIamRole-*"
+  QApplicationIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: 
+              Service: 
+               - qbusiness.amazonaws.com
+            Action: 
+              - "sts:AssumeRole"
+            Condition:
+              StringEquals: 
+                "aws:SourceAccount": !Sub "${AWS::AccountId}"
+              ArnLike: 
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/*"
+      Path: /
+      Policies:
+        - PolicyName: "support_q_application"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Sid: "AmazonQApplicationPutMetricDataPermission"
+              Effect: Allow
+              Action: "cloudwatch:PutMetricData"
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  "cloudwatch:namespace": "AWS/QBusiness"
+            - Sid: "AmazonQApplicationDescribeLogGroupsPermission"
+              Effect: Allow
+              Action: "logs:DescribeLogGroups"
+              Resource: "*"
+            - Sid: "AmazonQApplicationCreateLogGroupPermission"
+              Effect: Allow
+              Action: "logs:CreateLogGroup"
+              Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/qbusiness/*"
+            - Sid: "AmazonQApplicationLogStreamPermission"
+              Effect: Allow
+              Action:
+              - "logs:DescribeLogStreams"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+              Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/qbusiness/*:log-stream:*"
+  QDatasourceIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: 
+              Service: 
+               - qbusiness.amazonaws.com
+            Action: 
+              - "sts:AssumeRole"
+            Condition:
+              StringEquals: 
+                "aws:SourceAccount": !Sub "${AWS::AccountId}"
+              ArnLike: 
+                "aws:SourceArn": !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QApplicationCustomResource.ApplicationId}"
+      Path: /
+      Policies:
+        - PolicyName: "support_q_datasource"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Sid: "AllowsAmazonQToGetObjectfromS3"
+              Effect: Allow
+              Action: "s3:GetObject"
+              Resource: !Sub "arn:${AWS::Partition}:s3:::${S3DataSourceBucket}/*"
+              Condition:
+                StringEquals:
+                  "aws:ResourceAccount": !Sub "${AWS::AccountId}"
+            - Sid: "AllowsAmazonQToListS3Buckets"
+              Effect: Allow
+              Action: "s3:ListBucket"
+              Resource: !Sub "arn:${AWS::Partition}:s3:::${S3DataSourceBucket}"
+              Condition:
+                StringEquals:
+                  "aws:ResourceAccount": !Sub "${AWS::AccountId}"
+            - Sid: "AllowsAmazonQToIngestDocuments"
+              Effect: Allow
+              Action: 
+              - "qbusiness:BatchPutDocument"
+              - "qbusiness:BatchDeleteDocument" 
+              Resource:
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QApplicationCustomResource.ApplicationId}/index/${QApplicationCustomResource.IndexId}"
+            - Sid: "AllowsAmazonQToCallMappingAPIs"
+              Effect: Allow
+              Action:
+              - "qbusiness:PutGroup"
+              - "qbusiness:CreateUser"
+              - "qbusiness:DeleteGroup"
+              - "qbusiness:UpdateUser"
+              - "qbusiness:ListGroups"
+              Resource:
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QApplicationCustomResource.ApplicationId}"
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QApplicationCustomResource.ApplicationId}/index/${QApplicationCustomResource.IndexId}"
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QApplicationCustomResource.ApplicationId}/index/${QApplicationCustomResource.IndexId}/data-source/*"
+Outputs:
+  QApplicationId:
+    Description: "Q Application ID"
+    Value: !GetAtt QApplicationCustomResource.ApplicationId
+  QApplicationIndexId:
+    Description: "Q Application Index ID"
+    Value: !GetAtt QApplicationCustomResource.IndexId
+  QApplicationRetrieverId:
+    Description: "Q Application Retriever ID"
+    Value: !GetAtt QApplicationCustomResource.RetrieverId
+  QDatasourceId:
+    Description: "Q Datasource ID"
+    Value: !GetAtt QDataSourceCustomResource.dataSourceId
+  QDatasourceArn:
+    Description: "Q Datasource Arn"
+    Value: !GetAtt QDataSourceCustomResource.dataSourceArn

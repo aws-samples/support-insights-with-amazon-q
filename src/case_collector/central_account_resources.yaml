@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Master Account - Create IAM User and Attach Policy for Support Case Insights
+Description: Management Account - Create IAM User and Attach Policy for Support Case Insights
 
 Resources:
   SupportCaseInsightsUser:

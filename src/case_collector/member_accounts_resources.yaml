@@ -2,9 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Member Account - Create IAM Role for Support Case Insights
 
 Parameters:
-  MasterAccountID:
+  ManagementAccountID:
     Type: String
-    Description: The AWS Account ID of the master account.
+    Description: The AWS Account ID of the management account.
 
 Resources:
   CentralUserSupportCaseInsightsRole:
@@ -16,7 +16,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Sub 'arn:aws:iam::${MasterAccountID}:user/support_case_insights'
+              AWS: !Sub 'arn:aws:iam::${ManagementAccountID}:user/support_case_insights'
             Action: sts:AssumeRole
       Policies:
         - PolicyName: SupportCaseAccessPolicy
@@ -24,5 +24,7 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: 'support:*'
+                Action: 
+                  - support:DescribeCases
+                  - support:DescribeCommunication
                 Resource: '*'

@@ -6,15 +6,22 @@ Resources:
     Type: AWS::IAM::User
     Properties:
       UserName: support_case_insights
+      Groups: 
+        - !Ref SupportCaseInsightsGroup      
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
         - arn:aws:iam::aws:policy/AWSSupportAccess
+  
+  SupportCaseInsightsGroup:
+    Type: AWS::IAM::Group
 
   CrossAccountSupportAPIAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: CrossAccountSupportAPIAccessPolicy
+      Groups:
+        - !Ref SupportCaseInsightsGroup
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -42,7 +49,10 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - cloudformation:*
+                  - cloudformation:DescribeStacks
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:UpdateStack
                   - iam:PassRole
                 Resource: "*"
   

@@ -1,7 +1,7 @@
 # Q Case Insights (QCI)
 
 
-This sample solution, Q Case Insights (QCI), enables analytics with Generative AI on your past or existing AWS Support Cases to derive meaningful insights based on common patterns, issues, and resolutions. [Amazon Q Business](https://docs.aws.amazon.com/amazonq/latest/business-use-dg/what-is.html) is a fully-managed, generative-AI enterprise chat assistant for natural language queries and question-answering capabilities. QCI presents the capabilities of Q Web Experience with Generative AI, providing the ability for comprehensive sentiment analysis, trend detection, root cause analysis, and predictive modeling on your AWS support cases. 
+This sample solution, Amazon Q AWS Support Case Insights (QCI), enables analytics with Generative AI on your past or existing AWS Support Cases to derive meaningful insights based on common patterns, issues, and resolutions. [Amazon Q Business](https://docs.aws.amazon.com/amazonq/latest/business-use-dg/what-is.html) is a fully-managed, generative-AI enterprise chat assistant for natural language queries and question-answering capabilities. QCI presents the capabilities of Q Web Experience with Generative AI, providing the ability for comprehensive sentiment analysis, trend detection, root cause analysis, and predictive modeling on your AWS support cases. 
 
 QCI can also get support cases across your chosen accounts using the [AWS Support API](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support.html). The native capabilities of Amazon Q Business are utilized to index the AWS support case data from Amazon S3 and provide a chatbot web experience.
 
@@ -15,7 +15,7 @@ Leveraging Amazon Q with your support case data provides several opportunities s
 
 # Prerequisites
 
-it is recommended to use [AWS CloudShell](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) as you will have AWS CLI configured and Boto3 Python Library installed. 
+It is recommended to use [AWS CloudShell](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) as you will have AWS CLI configured and Boto3 Python Library installed. 
 If you are not using AWS CloudShell, the pre-requisites are:
 * AWS CLI installed and configured with appropriate permissions.
 * Boto3 Python library installed.
@@ -37,7 +37,9 @@ The DataCollection Account refers to the central account that contains the suppo
 
 ## Amazon Q Business Components
 
-Note: At this time, Amazon Q Business is only available in us-west-2 and us-east-1. Please select one of these regions to continue.
+Notes (as of February 2024): 
+* Amazon Q Business is only available in us-west-2 and us-east-1. Please select one of these regions to continue. 
+* Cloudformation support for Amazon Q is not yet available so this solution uses a Cloudformation Custom resource to deploy the Q Application and related components.
 
 In this section, we will go through the steps to set up Amazon Q components 
 
@@ -133,6 +135,14 @@ The CloudFormation will create necessary resources in DataCollection for accessi
 ### Historical Cases Upload to S3
 Now that you have IAM role setup to get support cases across your selected accounts using the AWS Support API, you can run the script as indicated below to upload the support cases in JSON format to your Data Collection S3 bucket.
 
+Before running the script, verify the support profile is configured in the AWS credentials file. You can create access key for the user *support_case_insights* and update the AWS credentials file. 
+
+```bash
+[support]
+aws_access_key_id = xxxxxxxxxx
+aws_secret_access_key = xxxxxxxxxxxxxx
+```
+
 Run the upload cases script:
 ```
 python bulk_upload_cases.py <name of the bucket in the DataCollection account that contains the case data>
@@ -148,3 +158,6 @@ To clean up the environment you have setup:
    * S3 bucket that contains the support case data.
    * S3 bucket that contains Q Application deployment resources.
 3. Delete the case collector resources: depending on the option you have selected for deployment, delete the Stackset or delete the IAM roles and corresponding Cloudformation stack.
+
+## Disclaimer
+The sample code provided in this solution is for educational purposes only and users should thoroughly test and validate the solution before deploying it in a production environment.

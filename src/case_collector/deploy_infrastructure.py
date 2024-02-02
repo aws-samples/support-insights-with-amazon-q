@@ -28,7 +28,7 @@ def deploy_stackset_member_accounts(stackset_name, template_file, ous, region, D
             TemplateBody=template_body,
             Parameters=[
                 {
-                    'ParameterKey': 'MasterAccountID',
+                    'ParameterKey': 'ManagementAccountID',
                     'ParameterValue': DATA_COLLECTION_ACCOUNT_ID
                 }
             ],

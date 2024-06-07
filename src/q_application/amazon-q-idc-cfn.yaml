@@ -1,18 +1,178 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: 
-  Deploy Amazon Q Business Application with support data.
+Description:
+  Deploy Amazon Q For Business Application.
 Parameters:
   S3DataSourceBucket:
     Description: The name of the bucket that contains the data for the data source
     Type: String
-  IAMIdentityCenterARN:
+  CreateIDC:
     Description: IAM Identity center is prerequisite to configure Q Business. Provide IAM Identity Instance ARN  
     Type: String
   QBusinessApplicationName:
     Description: The name of the Q Business Application
     Type: String
- 
+  IDCUserName:
+    Description: The name of the Q Business Application
+    Type: String 
+  IDCEmail:
+    Description: The name of the Q Business Application
+    Type: String 
+  IDCDisplayName:
+    Description: The name of the Q Business Application
+    Type: String  
+  IDCFirstName:
+    Description: The name of the Q Business Application
+    Type: String  
+  IDCLastName:
+    Description: The name of the Q Business Application
+    Type: String                    
+
+Conditions:
+  IfCreateIDC: !Equals 
+    - !Ref CreateIDC
+    - "yes"
+
 Resources:
+  IDCLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: IfCreateIDC
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SSOAdminPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sso:CreateInstance
+                  - sso:DescribeInstance
+                  - sso:ListInstances
+                  - iam:CreateServiceLinkedRole
+                  - identitystore:CreateGroup
+                  - identitystore:CreateGroupMembership
+                  - identitystore:CreateUser
+                Resource:
+                  - '*'
+
+  IDCLambda:
+    Type: AWS::Lambda::Function
+    Condition: IfCreateIDC
+    Properties:
+      Handler: index.handler
+      Runtime: python3.10
+      Timeout: 300
+      Description: Create IDC Local Instance
+      Role: !GetAtt IDCLambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          user_name: !Ref IDCUserName
+          email: !Ref IDCEmail
+          display_name: !Ref IDCDisplayName
+          given_name: !Ref IDCFirstName
+          last_name: !Ref IDCLastName          
+
+      Code:
+        ZipFile: |
+          import os
+          import json
+          import time
+          import boto3
+          import cfnresponse
+
+          sso_client = boto3.client('sso-admin')
+          id_store_client = boto3.client('identitystore')
+
+          GROUPS = ["QUsers"]
+          USERS = [
+              {
+                  "user_name": os.environ['user_name'],
+                  "email": os.environ['email'],
+                  "display_name": os.environ['display_name'],
+                  "given_name": os.environ['given_name'],
+                  "last_name": os.environ['last_name'],
+                  "groups": ["QUsers"]  
+              }
+          ]
+
+          def handler(event, context):
+              try:
+                  print('Received event: ' + json.dumps(event, indent=4, default=str))
+                  if event['RequestType'] == 'Create':
+                      print("Check for existing IDC Instance")
+                      list_inst_response = sso_client.list_instances()
+                      if list_inst_response["Instances"]:
+                          print("IDC Instance exists. Skipping creation")
+                          instance_arn = list_inst_response["Instances"][0]['InstanceArn']
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {'InstanceArn': instance_arn}, instance_arn)
+                          return
+                      print("Creating IDC Instance")
+                      create_response = sso_client.create_instance()
+                      instance_arn = create_response['InstanceArn']
+                      identity_store_id = None
+                      for idx in range(10):
+                          instance_dsec = sso_client.describe_instance(InstanceArn=instance_arn)
+                          print("IDC Instance:" + json.dumps(instance_dsec, indent=4, default=str))
+                          if instance_dsec['Status'] != "ACTIVE":
+                              time.sleep(10)
+                          else:
+                              identity_store_id = instance_dsec['IdentityStoreId']
+                              break
+                      if identity_store_id:
+                          group_idx = {}
+                          for group in GROUPS:
+                              resp = id_store_client.create_group(
+                                  IdentityStoreId=identity_store_id,
+                                  DisplayName=group,
+                                  Description=group
+                              )
+                              print("Group Creation:" + json.dumps(resp, indent=4, default=str))
+                              group_idx[group] = resp["GroupId"]
+                          for user in USERS:
+                              user_resp = id_store_client.create_user(
+                                  IdentityStoreId=identity_store_id,
+                                  UserName=user["user_name"],
+                                  DisplayName=user["display_name"],
+                                  Emails=[{"Value": user["email"], "Type": "Work", "Primary": True}],
+                                  Name={"GivenName": user["given_name"], "FamilyName": user["last_name"]}
+                              )
+                              print("User Creation:" + json.dumps(user_resp, indent=4, default=str))
+                              # Assign groups
+                              for grp in user["groups"]:
+                                  if grp in group_idx:
+                                      member_resp = id_store_client.create_group_membership(
+                                          IdentityStoreId=identity_store_id,
+                                          GroupId=group_idx[grp],
+                                          MemberId={"UserId": user_resp["UserId"]}
+                                      )
+                                      print("Group Member Creation:" + json.dumps(member_resp, indent=4, default=str))
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {'InstanceArn': instance_arn}, instance_arn)
+                  # elif event['RequestType'] == 'Delete':
+                  #     sso_client.delete_instance(InstanceArn=event['PhysicalResourceId'])
+                  #     cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, event['PhysicalResourceId'])
+                  else:
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  print("done")
+              except Exception as e:
+                  print(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+
+  IDCInstance:
+    Type: AWS::CloudFormation::CustomResource
+    Condition: IfCreateIDC
+    Properties:
+      ServiceToken: !GetAtt IDCLambda.Arn
+
   QBusinessWebExperienceServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -162,8 +322,8 @@ Resources:
     Type: AWS::QBusiness::Application
     Properties:
       DisplayName: !Ref QBusinessApplicationName
-      Description: Q Support Insights
-      IdentityCenterInstanceArn: !Ref IAMIdentityCenterARN
+      Description: Q Support Insights (QSI)
+      IdentityCenterInstanceArn: !GetAtt IDCInstance.InstanceArn
       RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/qbusiness.amazonaws.com/AWSServiceRoleForQBusiness
 
 
@@ -188,7 +348,7 @@ Resources:
     Type: AWS::QBusiness::WebExperience
     Properties:
      ApplicationId: !GetAtt  QBusinessApp.ApplicationId
-     RoleArn: !GetAtt QBusinessWebExperienceServiceRole.Arn
+     RoleArn: !GetAtt QBusinessWebExperienceServiceRole.Arn  
      Title: Q Support Insights 
 
   

@@ -73,13 +73,35 @@ Resources:
           Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
 
   EventBridgeRuleForDailyRun:
-    Type: AWS::Events::Rule
+    Type: AWS::Scheduler::Schedule
     Properties:
+      Name: EventBridgeRuleForDailyRun
       ScheduleExpression: "cron(0 7 ? * * *)"
-      Targets:
-        - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-          Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt SupportInsightsLambdaFunction.Arn
+        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+        RoleArn: !GetAtt SchedulerRole.Arn
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SchedulerLambdaInvocationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt SupportInsightsLambdaFunction.Arn
 
   LambdaPermissionForHistoricalSupportDataRule:
     Type: AWS::Lambda::Permission
@@ -87,14 +109,6 @@ Resources:
       FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt EventBridgeRuleForHistoricalSupportData.Arn
-      Action: lambda:InvokeFunction
-
-  LambdaPermissionForDailyRunRule:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt EventBridgeRuleForDailyRun.Arn
       Action: lambda:InvokeFunction
 
 Outputs:

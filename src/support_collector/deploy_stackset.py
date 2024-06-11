@@ -1,9 +1,36 @@
 import boto3
+from datetime import datetime, timedelta
+import pytz
+
+SCHEDULE_DELAY_MINUTES = 20
+
+
+def generate_schedule_expression(start_time):
+    """
+    Generate the ScheduleExpression parameter value for a one-time schedule.
+
+    Args:
+        start_time (datetime): The start time of the script execution.
+
+    Returns:
+        str: The ScheduleExpression parameter value in the format "at(yyyy-mm-ddThh:mm:ss)" in UTC time zone.
+    """
+    scheduled_time = start_time + timedelta(minutes=SCHEDULE_DELAY_MINUTES)
+    scheduled_time_utc = scheduled_time.astimezone(pytz.utc)
+    schedule_expression = f"at({scheduled_time_utc.strftime('%Y-%m-%dT%H:%M:%S')})"
+    return schedule_expression
 
 def deploy_stackset_member_accounts(stackset_name, template_file, region, master_account_bucket_name, resource_master_bucket_name, role_name, valid_ou_ids):
     cf_client = boto3.client('cloudformation')
     with open(template_file, 'r', encoding='utf-8') as file:
         template_body = file.read()
+
+    # Get the start time (when the script execution begins)
+    start_time = datetime.now()
+    
+    # Generate the ScheduleExpression for the one-time schedule
+    schedule_expression = generate_schedule_expression(start_time)
+    
     try:
         # Create StackSet with Parameters
         response = cf_client.create_stack_set(
@@ -21,6 +48,10 @@ def deploy_stackset_member_accounts(stackset_name, template_file, region, master
                 {
                     'ParameterKey': 'ResourceMasterBucketName',
                     'ParameterValue': resource_master_bucket_name
+                },
+                {
+                    'ParameterKey': 'ScheduleExpression',
+                    'ParameterValue': schedule_expression
                 }
             ],
             Capabilities=['CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND'],

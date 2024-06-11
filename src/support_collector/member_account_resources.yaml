@@ -11,6 +11,9 @@ Parameters:
   ResourceMasterBucketName:
     Type: String
     Description: Name of the S3 bucket containing the Lambda package in the master account
+  ScheduleExpression:
+    Type: String
+    Description: The schedule expression for the one-time EventBridge rule
 
 Resources:
   SupportInsightsLambdaExecutionRole:
@@ -64,13 +67,16 @@ Resources:
       Timeout: 900
 
   EventBridgeRuleForHistoricalSupportData:
-    Type: AWS::Events::Rule
+    Type: AWS::Scheduler::Schedule
     Properties:
-      ScheduleExpression: "rate(15 minutes)"
-      Targets:
-        - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-          Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+      Name: EventBridgeRuleForHistoricalSupportData
+      ScheduleExpression: !Ref ScheduleExpression
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt SupportInsightsLambdaFunction.Arn
+        Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+        RoleArn: !GetAtt SchedulerRole.Arn
 
   EventBridgeRuleForDailyRun:
     Type: AWS::Events::Rule
@@ -81,14 +87,6 @@ Resources:
           Id: LambdaFunctionTarget
           Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
 
-  LambdaPermissionForHistoricalSupportDataRule:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt EventBridgeRuleForHistoricalSupportData.Arn
-      Action: lambda:InvokeFunction
-
   LambdaPermissionForDailyRunRule:
     Type: AWS::Lambda::Permission
     Properties:
@@ -96,6 +94,25 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt EventBridgeRuleForDailyRun.Arn
       Action: lambda:InvokeFunction
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SchedulerLambdaInvocationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt SupportInsightsLambdaFunction.Arn
 
 Outputs:
   LambdaExecutionRoleArn:

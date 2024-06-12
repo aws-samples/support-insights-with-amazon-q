@@ -1,22 +1,17 @@
 # Q Support Insights (QSI) - Amazon Q Business Deployment
-Note: Amazon Q Business is only available in us-west-2 and us-east-1 at this time.
+Note: Amazon Q Business is only available in us-east-1 and us-west-2 at this time.
 
 The steps below will deploy an shell script which will check pre-requisites required to deploy an Amazon Q Business application. The script will deploy an Amazon Q Business application, S3 data source connector, required IAM roles, Lambda Function and Web Experience (web experience to provide support insights with chatbot, conversational and interactive user experience) for Q Business application using AWS IAM Identity Center (IDC) as identity provider (IdP). The deployed web experience can be used by users to login and securely use the application, based only on the content the logged in user has permissions to access.
 
 # Pre-requisites
- 1. Amazon Q Business is only available in AWS Regions "us-east-1" and "us-west-2".
- 2. AWS IAM Identity Center (IDC) can create only one instance per account and across all Amazon Web Services Regions. AWS IAM Identity Center must be  configured in the same region as your Q Application. Hence script will be create IAM Identity Center(IDC) only in "us-east-1" and "us-west-2" as Amazon Q Business is currently only available in this regions if there is no IAM Identity Center (IDC) currently configured.
-
- # Limitations
- 1. Script should be executed from one of member account where Data Source Bucket resides. The script can only create IAM Identity Center instance from member accounts and not from an Organization Account as the CreateInstance API of IAM Identity Center will only create the instance in member account of AWS Organization.
- 2. If there is requirement to create IAM Identity center at Organizational Account, you can Enable AWS Identity center manually using following [guide](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html) from Organization Account and then run the script.
-
-
+ 1. Amazon Q Business is only available in AWS Regions "us-west-2" and "us-east-1".
+ 2. [AWS IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html) as the SAML 2.0-compliant identity provider (IdP) configured in the same region as your Q Application. Please ensure that you have enabled an [IAM Identity Center instance](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html), provisioned at least one user, and provided each user with a valid email address. For more details, see [Configure user access](https://docs.aws.amazon.com/singlesignon/latest/userguide/quick-start-default-idc.html) with the default IAM Identity Center directory. 
+ 
 # Deployment
 
 **a. Deploy Amazon Q Business Application, S3 Datasource Connector and Web Experience**
 
-1.	Launch AWS CloudShell in either AWS Region (us-east-1 or us-west-2)  and clone the QCI repository from GitHub using the command:
+1.	Launch AWS CloudShell in either AWS Region (us-east-1 or us-west-2) in your Data Collection Central account and clone the QCI repository from GitHub using the command:
 ```bash
 git clone https://github.com/aws-samples/support-insights-with-amazon-q.git
 ```
@@ -29,10 +24,6 @@ chmod +x deploy_cfn.sh
 ```
 3. Provide the inputs as requested in the script.
 
-**Note:**
-- The script will check **pre-requisites to deploy Amazon Q Business Application**. Amazon Q Business requires AWS IAM Identity Center (IDC) for user and/or group subscription management, authentication and authorization. The script will check if AWS IAM Identity Center (IDC) is configured in us-east-1 or us-west-2. 
-- **If AWS IAM Identity Center (IDC) is not configured in us-east-1 or us-west-2** script will enable and create AWS IAM Identity Center (IDC) Instance, provision with one User and Group called "QUsers" along with resources required for setting up Amazon Q Business Application using a CloudFormation template in region where AWS CloudShell was launched to run script based on user input. The script will exit if User Input ("no") is selected. 
-- **If AWS IAM Identity Center (IDC) is already configured in us-east-1 or us-west-2**, the script will create resources required for setting up Amazon Q Business Application using a CloudFormation template. AWS IAM Identity Center needs to configured in the same region as your Q Application. The script will exit if AWS IAM Identity Center (IDC) is not configured in region (us-east-1 or us-west-2) where AWS CloudShell is being launched to run the script (ie: running the script in us-east-1 when IAM Identity Center is configured in us-west-2).
 
 **b. Syncronize Amazon Q Datasource.**
 

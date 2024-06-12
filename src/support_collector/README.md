@@ -102,6 +102,7 @@ cd support-insights-with-amazon-q/src/support_collector
 4. Run the `deploy_collector.sh` script with the name of your S3 bucket as an argument:
 
 ```bash
+chmod +x deploy_collector.sh 
 ./deploy_collector.sh
 ```
 The script will prompt you for the following inputs:
@@ -150,6 +151,36 @@ The script will prompt you for the following inputs:
 
 Utilize this option if you do not wish to leverage AWS Organizations and want to target a few accounts.
 
+#### Deployment Steps
+
+1. In the member account, launch AWS CloudShell or open a terminal window on your local machine.
+2. Clone the repository:
+
+```bash
+git clone https://github.com/aws-samples/support-insights-with-amazon-q.git
+```
+
+3. Navigate to the `individual-account-deployments` directory:
+
+```bash
+cd support-insights-with-amazon-q/src/support_collector/individual-account-deployments
+```
+
+4. Run the `deploy_collector_lambda_member.sh` script:
+
+```bash
+chmod +x deploy_collector.sh
+./deploy_collector_lambda_member.sh
+```
+
+5. The script will prompt you to provide the input bucket name (in the member account) and the name of the S3 bucket in the Data Collection Central account.
+6. The script will perform the following tasks:
+   - Install dependencies and create a deployment package for the AWS Lambda function.
+   - Upload the deployment package to the S3 bucket in the member account.
+   - Create an IAM role `SupportInsightsLambdaRole-9c8794ee-f9e8` with the necessary permissions to access the AWS Support and Health services, as well as the S3 bucket in the Data Collection Central account.
+   - Deploy the Lambda function with the created IAM role, using a CloudFormation stack.
+   - Set up an Amazon EventBridge scheduler to periodically trigger the AWS Lambda function.
+
 #### Bucket Policy
 
 The bucket policy of the S3 bucket (in the Data Collection Central account) needs to be updated to grant access to the specific member accounts. Replace the placeholders in the following bucket policy with your specific values:
@@ -176,35 +207,6 @@ The bucket policy of the S3 bucket (in the Data Collection Central account) need
 
 Replace `<member_account_id>` with the actual AWS account ID of the member account, and `<your-bucket-name>` with the name of the S3 bucket in the Data Collection Central account. You can add multiple accounts. Please note 'SupportInsightsLambdaRole-9c8794ee-f9e' is going to be the name of the role created in the member accounts to grant permission to Lambda function as indicated in the deployment steps below .
 
-#### Deployment Steps
-
-1. In the member account, launch AWS CloudShell or open a terminal window on your local machine.
-2. Clone the repository:
-
-```bash
-git clone https://github.com/aws-samples/support-insights-with-amazon-q.git
-```
-
-3. Navigate to the `individual-account-deployments` directory:
-
-```bash
-cd support-insights-with-amazon-q/src/support_collector/individual-account-deployments
-```
-
-4. Run the `deploy_collector_lambda_member.sh` script:
-
-```bash
-./deploy_collector_lambda_member.sh
-```
-
-5. The script will prompt you to provide the input bucket name (in the member account) and the name of the S3 bucket in the Data Collection Central account.
-6. The script will perform the following tasks:
-   - Install dependencies and create a deployment package for the AWS Lambda function.
-   - Upload the deployment package to the S3 bucket in the member account.
-   - Create an IAM role `SupportInsightsLambdaRole-9c8794ee-f9e8` with the necessary permissions to access the AWS Support and Health services, as well as the S3 bucket in the Data Collection Central account.
-   - Deploy the Lambda function with the created IAM role, using a CloudFormation stack.
-   - Set up an Amazon EventBridge scheduler to periodically trigger the AWS Lambda function.
-
 ## Data Collection Process
 
 After the successful deployment, an Amazon EventBridge scheduler will periodically trigger the AWS Lambda function. The Lambda function will collect and store the support data in the specified S3 bucket.
@@ -215,19 +217,75 @@ After the successful deployment, an Amazon EventBridge scheduler will periodical
 
 The user does not need to manually trigger the Lambda function, as the data collection process is automated and managed by the deployed resources.
 
+## Optional - Testing the Lambda Function
+
+You can test the Lambda function by invoking it with a custom payload. The payload should be a JSON object with the following properties:
+
+- `past_no_of_days` (integer): The number of past days for which you want to retrieve support data.
+- `bucket_name` (string): The name of the S3 bucket where the support data will be stored.
+- `case` (boolean): Whether to include case data or not.
+- `health` (boolean): Whether to include health data or not.
+- `ta` (boolean): Whether to include Trusted Advisor data or not.
+
+Example payload:
+
+```json
+{
+  "past_no_of_days": 2,
+  "bucket_name": "<DATA-COLLECTION-BUCKET>",
+  "case": true,
+  "health": true,
+  "ta": true
+}
+```
+
+In this example, the Lambda function will retrieve support data for the past 180 days, including case data, health data, and Trusted Advisor data. The data will be stored in the `<DATA-COLLECTION-BUCKET>` S3 bucket.
+
+To test the Lambda function:
+
+1. Navigate to the AWS Lambda console.
+2. Select the Lambda function you want to test.
+3. Click the "Test" button.
+4. Under "Configure test event", choose "Create new event".
+5. Enter an event name (e.g., "TestEvent").
+6. Replace the default JSON payload with the desired payload (e.g., the example payload above).
+7. Click "Create".
+8. Click "Test" to invoke the Lambda function with the provided payload.
+
+The Lambda function will execute, and you can review the output and logs in the "Execution result" section.
+
+Note: Make sure to replace `<DATA-COLLECTION-BUCKET>` with the actual name of your S3 bucket.
+
 ## Cleanup
 
 To clean up the deployed resources, follow these steps:
 
 1. Delete the CloudFormation StackSet (for option 1):
    - Navigate to the CloudFormation console in the Central account.
-   - Select the StackSet named `support-insights-stackset`.
+   - Select the StackSet named `support-insights-stackset-*`.
    - Delete the StackSet.
 
-2. Delete the Central account CloudFormation stack:
-   - Navigate to the CloudFormation console in the Central account.
-   - Select the stack named `SupportInsightsLambdaStack` or `support-insights-central-stack`.
+   Alternatively, you can use the CLI commands as below:
+   - Delete the Stack Instances (replace the placeholders):
+   ```
+   aws cloudformation delete-stack-instances --stack-set-name support-insights-stackset-<time-stamp> --deployment-targets OrganizationalUnitIds=<ou ids> --regions us-west-2 --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1 --no-retain-stacks
+   ```
+   - Delete the StackSet:
+   ```
+   aws cloudformation delete-stack-set --stack-set-name support-insights-stackset-<time-stamp>
+   ```
+
+2. Delete the member account CloudFormation stack (for option 2):
+   - Navigate to the CloudFormation console in the member account.
+   - Select the stack named `SupportInsightsLambdaStack`.
    - Delete the stack.
+
+   Alternatively, you can use the CLI command:
+   ```
+   aws cloudformation delete-stack --stack-name SupportInsightsLambdaStack
+   ```
+
+> **Warning:** Before proceeding with the next step, ensure that no critical data is present in the S3 bucket containing the support data. Deleting the S3 bucket will permanently remove all data stored in it.
 
 3. Empty and delete the S3 bucket containing the support data.
 

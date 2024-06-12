@@ -5,6 +5,10 @@ import datetime
 from datetime import timedelta
 from collections import defaultdict
 from botocore.exceptions import ClientError
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 session = boto3.Session()
 
@@ -58,7 +62,7 @@ def describe_cases(after_time, resolved):
         for page in paginator.paginate(
             afterTime=after_time,
             includeResolvedCases=resolved,
-            includeCommunications = True,
+            includeCommunications=True,
             language="en",
         ):
             cases += page["cases"]
@@ -70,9 +74,8 @@ def describe_cases(after_time, resolved):
                 "examples."
             )
         else:
-            print(err.response["Error"]["Message"])
             logger.error(
-                "Couldn't describe cases. Here's why: %s: %s",
+                "Couldn't describe cases. Error Code: %s, Error Message: %s",
                 err.response["Error"]["Code"],
                 err.response["Error"]["Message"],
             )
@@ -91,16 +94,29 @@ def list_all_cases(days):
   return all_cases
 
 
-def upload_all_cases_to_s3(bucket_name, past_no_of_days, account_id):
+def create_support_case_context(case, account_id):
+    display_id = case["displayId"]  # Use the correct key for the case ID
+    time_created = case["timeCreated"]
+    case_status = case["status"]
+    service_code = case["serviceCode"]
+    severity_code = case["severityCode"]
 
+    # Create the context for search
+    support_case_context = f"This is an AWS support case ID {display_id} in account ID {account_id}. The case was opened on {time_created}; It is a {case_status} case related to the {service_code} service with {severity_code} severity. The details are on the body fields of the JSON."
+
+    return support_case_context
+
+
+def upload_all_cases_to_s3(bucket_name, past_no_of_days, account_id):
     cases_by_account = defaultdict(list)
     cases = list_all_cases(past_no_of_days)
 
     for case in cases:
         case_dict = {
             "account_id": account_id,
-            "case": case 
+            "case": case,
+            "support_case_context": create_support_case_context(case, account_id)  # Add the custom field
         }
         cases_by_account[account_id].append(case_dict)
-                         
+
     save_to_s3(cases_by_account, bucket_name)

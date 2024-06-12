@@ -4,8 +4,8 @@ Note: Amazon Q Business is only available in us-west-2 and us-east-1 at this tim
 The steps below will deploy an shell script which will check pre-requisites required to deploy an Amazon Q Business application. The script will deploy an Amazon Q Business application, S3 data source connector, required IAM roles, Lambda Function and Web Experience (web experience to provide support insights with chatbot, conversational and interactive user experience) for Q Business application using AWS IAM Identity Center (IDC) as identity provider (IdP). The deployed web experience can be used by users to login and securely use the application, based only on the content the logged in user has permissions to access.
 
 # Pre-requisites
- 1. Amazon Q Business is only available in AWS Regions "us-west-2" and "us-east-1".
- 2. AWS IAM Identity Center (IDC) can create only one instance per account and across all Amazon Web Services Regions. AWS IAM Identity Center must be  configured in the same region as your Q Application. Hence script will be create IAM Identity Center(IDC) only in "us-west-2" and "us-east-1" as Amazon Q Business is currently only available in this regions if there is no IAM Identity Center (IDC) currently configured.
+ 1. Amazon Q Business is only available in AWS Regions "us-east-1" and "us-west-2".
+ 2. AWS IAM Identity Center (IDC) can create only one instance per account and across all Amazon Web Services Regions. AWS IAM Identity Center must be  configured in the same region as your Q Application. Hence script will be create IAM Identity Center(IDC) only in "us-east-1" and "us-west-2" as Amazon Q Business is currently only available in this regions if there is no IAM Identity Center (IDC) currently configured.
 
  # Limitations
  1. Script should be executed from one of member account where Data Source Bucket resides. The script can only create IAM Identity Center instance from member accounts and not from an Organization Account as the CreateInstance API of IAM Identity Center will only create the instance in member account of AWS Organization.

@@ -32,33 +32,6 @@ if [[ "$CURRENT_REGION" == "us-west-2"  ]];
   fi   
 fi     
 }
-#Function Creates IAM Idenity Center Instance and deploys Amazon Q
-
-function deploy_IDC_Q() {
-read -r -p "IAM Identity center is pre-requisite to configure Amazon Q Business and is only available in us-west-2 and us-east-1. IAM Identity Center is currently not configured in your environment. Do you want to proceed with configuring IAM Identity center in $CURRENT_REGION ? (yes/no): " response_type
-while true;do
-case $response_type in
-    yes ) echo Thank you for confirmation. Proceeding;
-        break;;
-    no ) echo  "Exiting from script. IAM Identity center is pre-requisite to configure Amazon Q Business."
-        exit;;
-    * ) echo invalid response
-    exit -1
- esac
-done
-STACK_NAME_Q_IDC=amazon-q-idc-cfn
-echo "IAM Identity Center will be enabled and one user will be provisioned in IAM Identity Center. Enter user details"
-read -r -p " Enter First Name: " IDCFirstName
-read -r -p " Enter Last Name: " IDCLastName
-read -r -p " Enter Display Name: " IDCDisplayName
-read -r -p " Enter Email Address: " IDCEmail
-read -r -p " Enter Username: " IDCUserName
-read -r -p " Enter name for the Amazon Q Business Application (Hyphens (-) can be included, but not spaces):  " QBusinessApplicationName
-read -r -p " Enter name of the S3 Data Source Bucket:  " S3DataSourceBucket
-
-echo "Creating stack..."
-aws cloudformation create-stack --template-body file://amazon-q-idc-cfn.yaml --capabilities CAPABILITY_NAMED_IAM --stack-name $STACK_NAME_Q_IDC  --parameters ParameterKey=CreateIDC,ParameterValue=yes  ParameterKey=IDCUserName,ParameterValue="$IDCUserName"  ParameterKey=IDCFirstName,ParameterValue="$IDCFirstName" ParameterKey=IDCLastName,ParameterValue="$IDCLastName" ParameterKey=IDCDisplayName,ParameterValue="$IDCDisplayName" ParameterKey=IDCEmail,ParameterValue="$IDCEmail" ParameterKey=S3DataSourceBucket,ParameterValue="$S3DataSourceBucket" ParameterKey=QBusinessApplicationName,ParameterValue="$QBusinessApplicationName" --no-cli-pager
-}
 
 #Checking Pre-requistes to deploy Amazon Q.
 
@@ -79,7 +52,7 @@ IDC_INSTANCEARN_USW2=$(aws sso-admin list-instances --query "Instances[*].Instan
 
 if [[ -z "$IDC_INSTANCEARN_USE1" && -z "$IDC_INSTANCEARN_USW2" ]];
  then
-   deploy_IDC_Q
+   echo "Exiting from script. Please check pre-requistes and re-run script." exit 1
  else
   deploy_Q
 fi

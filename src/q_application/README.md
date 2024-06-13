@@ -4,7 +4,7 @@ Note: Amazon Q Business is only available in us-east-1 and us-west-2 at this tim
 The steps below will deploy an shell script which will check pre-requisites required to deploy an Amazon Q Business application. The script will deploy an Amazon Q Business application, S3 data source connector, required IAM roles, Lambda Function and Web Experience (web experience to provide support insights with chatbot, conversational and interactive user experience) for Q Business application using AWS IAM Identity Center (IDC) as identity provider (IdP). The deployed web experience can be used by users to login and securely use the application, based only on the content the logged in user has permissions to access.
 
 # Pre-requisites
- 1. Amazon Q Business is only available in AWS Regions "us-west-2" and "us-east-1".
+ 1. Amazon Q Business is only available in AWS Regions "us-east-1" and "us-west-2".
  2. [AWS IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html) as the SAML 2.0-compliant identity provider (IdP) configured in the same region as your Q Application. Please ensure that you have enabled an [IAM Identity Center instance](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html), provisioned at least one user, and provided each user with a valid email address. For more details, see [Configure user access](https://docs.aws.amazon.com/singlesignon/latest/userguide/quick-start-default-idc.html) with the default IAM Identity Center directory. 
  
 # Deployment

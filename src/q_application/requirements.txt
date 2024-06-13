@@ -1,2 +1,0 @@
-boto3>=1.34
-crhelper>=2.0

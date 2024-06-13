@@ -1,7 +1,7 @@
 # Q Support Insights (QSI) - Amazon Q Business Deployment
 Note: Amazon Q Business is only available in us-east-1 and us-west-2 at this time.
 
-The steps below will deploy an shell script which will check pre-requisites required to deploy an Amazon Q Business application. The script will deploy an Amazon Q Business application, S3 data source connector, required IAM roles, Lambda Function and Web Experience (web experience to provide support insights with chatbot, conversational and interactive user experience) for Q Business application using AWS IAM Identity Center (IDC) as identity provider (IdP). The deployed web experience can be used by users to login and securely use the application, based only on the content the logged in user has permissions to access.
+The steps below will utilize a shell script which will check the pre-requisites required to deploy an Amazon Q Business application. The script will deploy an Amazon Q Business application, S3 data source connector, required IAM roles, Lambda Function, and Web Experience (web experience to provide support insights with a chatbot, conversational and interactive user experience) for the Q Business application using AWS IAM Identity Center (IDC) as the identity provider (IdP). The deployed web experience can be used by users to log in and securely use the application, based only on the content the logged-in user has permissions to access.
 
 # Pre-requisites
  1. Amazon Q Business is only available in AWS Regions "us-east-1" and "us-west-2".

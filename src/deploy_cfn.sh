@@ -52,7 +52,9 @@ IDC_INSTANCEARN_USW2=$(aws sso-admin list-instances --query "Instances[*].Instan
 
 if [[ -z "$IDC_INSTANCEARN_USE1" && -z "$IDC_INSTANCEARN_USW2" ]];
  then
-   echo "Exiting from script. Please check pre-requistes and re-run script." exit 1
+   echo "Exiting from script. Please check Prerequisites and re-run script.
+    1. Amazon Q Business is only available in AWS Regions  "us-east-1" and "us-west-2" .
+    2. AWS IAM Identity Center as the SAML 2.0-compliant identity provider (IdP) configured in the same region as your Q Application. Please ensure that you have enabled an IAM Identity Center instance, provisioned at least one user, and provided each user with a valid email address." ; exit 1
  else
   deploy_Q
 fi

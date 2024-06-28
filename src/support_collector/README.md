@@ -169,7 +169,7 @@ cd support-insights-with-amazon-q/src/support_collector/individual-account-deplo
 4. Run the `deploy_collector_lambda_member.sh` script:
 
 ```bash
-chmod +x deploy_collector.sh
+chmod +x deploy_collector_lambda_member.sh
 ./deploy_collector_lambda_member.sh
 ```
 

@@ -48,10 +48,8 @@ At this stage, the Amazon Q Application with web experience is created.
 
 ## Cleanup
 To clean up the environment you have setup:
-1. Delete the Q Application: delete the corresponding Cloudformation Stack.
-2. Empty and delete the S3 bucket:
-   * S3 bucket that contains the data that was configured during Amazon Q Business Deployment.
-   
+1. To delete the Q Application, delete the corresponding Cloudformation Stack.
+2. Empty and delete the S3 bucket that contains the data that was configured during Amazon Q Business Deployment.   
 
 ## Disclaimer
 The sample code provided in this solution is for educational purposes only and users should thoroughly test and validate the solution before deploying it in a production environment.

@@ -25,7 +25,7 @@ chmod +x deploy_cfn.sh
 3. Provide the inputs as requested in the script.
 
 
-**b. Syncronize Amazon Q Datasource.**
+**b. Syncronize Amazon Q Datasource**
 
 The data source created above is scheduled to synchronize the data stored in provided Amazon S3 Bucket every day at midnight UTC.
 1.	Login to AWS Account where the script was executed and navigate to the Amazon Q console and select your Q application with the name that was provided during deployment step.

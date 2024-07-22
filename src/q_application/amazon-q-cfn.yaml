@@ -13,6 +13,15 @@ Parameters:
     Type: String
  
 Resources:
+
+  QBusinessApp:
+    Type: AWS::QBusiness::Application
+    Properties:
+      DisplayName: !Ref QBusinessApplicationName
+      Description: Q Support Insights
+      IdentityCenterInstanceArn: !Ref IAMIdentityCenterARN
+      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/qbusiness.amazonaws.com/AWSServiceRoleForQBusiness
+
   QBusinessWebExperienceServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -25,7 +34,7 @@ Resources:
                - application.qbusiness.amazonaws.com
             Action: 
               - 'sts:AssumeRole'
-              - 'sts:SetContext'              
+              - 'sts:SetContext'
             Condition:
               StringEquals: 
                 "aws:SourceAccount": !Sub "${AWS::AccountId}"
@@ -35,7 +44,7 @@ Resources:
       ManagedPolicyArns:
         - !Ref QBusinessWebExperienceServiceManagedPolicy
     DependsOn:
-      - QBusinessWebExperienceServiceManagedPolicy         
+      - QBusinessWebExperienceServiceManagedPolicy
       
   QBusinessWebExperienceServiceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -58,7 +67,7 @@ Resources:
             - "qbusiness:GetWebExperience"
             - "qbusiness:GetApplication"
             - "qbusiness:ListPlugins"
-            - "qbusiness:GetChatControlsConfiguration"              
+            - "qbusiness:GetChatControlsConfiguration"
             Resource: !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
           - Sid: "QBusinessKMSDecryptPermissions"
             Effect: Allow
@@ -114,7 +123,7 @@ Resources:
       ManagedPolicyArns:
         - !Ref QBusinessDataSourceManagedPolicy
     DependsOn:
-      - QBusinessDataSourceManagedPolicy      
+      - QBusinessDataSourceManagedPolicy
 
   QBusinessDataSourceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -142,7 +151,7 @@ Resources:
             Effect: Allow
             Action: 
             - "qbusiness:BatchPutDocument"
-            - "qbusiness:BatchDeleteDocument" 
+            - "qbusiness:BatchDeleteDocument"
             Resource:
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/index/${QBusinessIndex.IndexId}"
           - Sid: "AllowsAmazonQToCallMappingAPIs"
@@ -157,15 +166,6 @@ Resources:
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/index/${QBusinessIndex.IndexId}"
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/index/${QBusinessIndex.IndexId}/data-source/*"
-                 
-  QBusinessApp:
-    Type: AWS::QBusiness::Application
-    Properties:
-      DisplayName: !Ref QBusinessApplicationName
-      Description: Q Support Insights
-      IdentityCenterInstanceArn: !Ref IAMIdentityCenterARN
-      RoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/aws-service-role/qbusiness.amazonaws.com/AWSServiceRoleForQBusiness
-
 
   QBusinessIndex:
     Type: AWS::QBusiness::Index
@@ -211,9 +211,8 @@ Resources:
             fieldMappings:
               - dataSourceFieldName: "s3_document_id"
                 indexFieldName: "s3_document_id"
-                indexFieldType: "STRING"      
+                indexFieldType: "STRING"
      DisplayName: qci-insights-datasource
      SyncSchedule: 'cron(0 0 * * ? *)'
      IndexId: !GetAtt QBusinessIndex.IndexId
      RoleArn: !GetAtt QBusinessDataSourceRole.Arn
-  

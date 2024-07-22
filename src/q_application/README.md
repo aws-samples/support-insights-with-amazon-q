@@ -27,23 +27,23 @@ chmod +x deploy_cfn.sh
 
 **b. Synchronize Amazon Q Datasource**
 
-The data source created above is scheduled to synchronize the data stored in provided Amazon S3 Bucket every day at midnight UTC.
+The data source created above is scheduled to synchronize the data stored in provided Amazon S3 bucket every day at midnight UTC.
 1.	Login to AWS Account where the script was executed and navigate to the Amazon Q console and select your Q application with the name that was provided during deployment step.
-2. Select the datasource qci-insights-datasource and click Sync now.
+2. Select the datasource **qci-insights-datasource** and click **Sync now**.
 
 **c. Add Groups and Users Access**
 
-1.	Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in above Step.
-2. Navigate to Groups and users and click on Add Groups and users, select Assign existing users and groups, click Next and click Get Started.
-3. In the Assign users and groups window use the search box to find users and groups by name. Clich Assign to add the group/users to the application.
-4. Selected the newly added user/group ,click the Choose Subscription, select Q Business Pro/Q Business Lite .
+1.	Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in previous step.
+2. Navigate to **Groups and users** and click on **Add Groups and users**, select **Assign existing users and groups**, click **Next** and click **Get Started**.
+3. In the Assign users and groups window, use the search box to find users and groups by name. Click **Assign** to add the group/users to the application.
+4. Selected the newly added user/group, click **Choose Subscription**, select **Q Business Pro/Q Business Lite**.
 
 **d. Use Web Experience**
 
 At this stage, the Amazon Q Application with web experience is created.
 1.	Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in above Step.
-2. In the Data sources, check the Current sync state status. If it states Syncing, you will have to wait until it is completed.
-2. Click on Deployed URL under Web experience settings to launch the deployed web experience.
+2. In the Data sources, check the current sync state status. If it states Syncing, you will have to wait until it is completed.
+2. Click on deployed URL under Web experience settings to launch the deployed web experience.
 3. Type your query and it should return a response after a few seconds. 
 
 ## Cleanup

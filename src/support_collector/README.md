@@ -7,8 +7,8 @@ This repository contains scripts and resources to automate the deployment of AWS
 - An AWS account for resources with the necessary permissions to create and manage resources (IAM roles, Lambda functions, CloudFormation stacks, etc.).
 - A Support plan such as Business, Enterprise On-Ramp, or Enterprise Support to access the AWS Support API.
 - It is recommended to utilize AWS CloudShell, as it comes pre-installed with the required libraries and tools. Alternatively, you can use a local machine with the AWS CLI installed and configured with valid credentials.
-- An Amazon S3 bucket for Data Collection in Master Account
-- An Amazon S3 bucket for Resources for infrastructure deployment in Master Account
+- An Amazon S3 bucket for Data Collection in Management Account
+- An Amazon S3 bucket for Resources for infrastructure deployment in Management Account
 
 ## Lambda Function Configuration
 

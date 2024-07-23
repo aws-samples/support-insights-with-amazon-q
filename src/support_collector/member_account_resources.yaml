@@ -5,12 +5,12 @@ Parameters:
   LambdaRoleName:
     Type: String
     Description: Name of the IAM role for the Lambda function
-  MasterAccountBucketName:
+  ManagementAccountBucketName:
     Type: String
-    Description: Name of the S3 bucket in the master account
-  ResourceMasterBucketName:
+    Description: Name of the S3 bucket in the management account
+  ResourceManagementBucketName:
     Type: String
-    Description: Name of the S3 bucket containing the Lambda package in the master account
+    Description: Name of the S3 bucket containing the Lambda package in the management account
   ScheduleExpression:
     Type: String
     Description: The schedule expression for the one-time EventBridge rule
@@ -52,7 +52,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub 'arn:aws:s3:::${MasterAccountBucketName}/*'
+                Resource: !Sub 'arn:aws:s3:::${ManagementAccountBucketName}/*'
 
   SupportInsightsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -61,7 +61,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt SupportInsightsLambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref ResourceMasterBucketName
+        S3Bucket: !Ref ResourceManagementBucketName
         S3Key: support-collector-lambda.zip
       Runtime: python3.8
       Timeout: 900
@@ -75,7 +75,7 @@ Resources:
         Mode: "OFF"
       Target:
         Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-        Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+        Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
         RoleArn: !GetAtt SchedulerRole.Arn
 
   EventBridgeRuleForDailyRun:
@@ -85,7 +85,7 @@ Resources:
       Targets:
         - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
           Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+          Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
 
   LambdaPermissionForDailyRunRule:
     Type: AWS::Lambda::Permission

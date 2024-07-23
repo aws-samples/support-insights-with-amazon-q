@@ -24,11 +24,11 @@ echo "Deployment package created: support-collector-lambda.zip"
 echo "Enter the bucket name for resource upload: "
 read MEMBER_BUCKET_NAME
 
-echo "Enter the name of the S3 bucket in the master account: "
-read MASTER_BUCKET_NAME
+echo "Enter the name of the S3 bucket in the management account: "
+read MANAGEMENT_BUCKET_NAME
 
 echo "Uploading deployment package to S3..."
 aws s3 cp support-collector-lambda.zip s3://$MEMBER_BUCKET_NAME/
 
 echo "Invoking deploy_lambda_function.py..."
-python3 "$PWD/individual-account-deployments/deploy_lambda_function.py" --bucket-name $MEMBER_BUCKET_NAME --master-account-bucket-name $MASTER_BUCKET_NAME
+python3 "$PWD/individual-account-deployments/deploy_lambda_function.py" --bucket-name $MEMBER_BUCKET_NAME --management-account-bucket-name $MANAGEMENT_BUCKET_NAME

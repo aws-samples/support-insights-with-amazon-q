@@ -5,9 +5,9 @@ Parameters:
   LambdaRoleName:
     Type: String
     Description: Name of the IAM role for the Lambda function
-  MasterAccountBucketName:
+  ManagementAccountBucketName:
     Type: String
-    Description: Name of the S3 bucket in the master account
+    Description: Name of the S3 bucket in the management account
   MemberBucketName:
     Type: String
     Description: Name of the S3 bucket containing the Lambda package in the member account
@@ -49,7 +49,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub 'arn:aws:s3:::${MasterAccountBucketName}/*'
+                Resource: !Sub 'arn:aws:s3:::${ManagementAccountBucketName}/*'
 
   SupportInsightsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -70,7 +70,7 @@ Resources:
       Targets:
         - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
           Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
 
   EventBridgeRuleForDailyRun:
     Type: AWS::Scheduler::Schedule
@@ -81,7 +81,7 @@ Resources:
         Mode: "OFF"
       Target:
         Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${MasterAccountBucketName}", "case": true, "health": true, "ta": true}'
+        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
         RoleArn: !GetAtt SchedulerRole.Arn
 
   SchedulerRole:

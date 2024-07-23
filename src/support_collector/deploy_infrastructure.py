@@ -41,10 +41,10 @@ def get_all_ou_ids():
         print("No valid OU IDs provided. Exiting...")
         exit()
 
-def deploy_stackset_module(stackset_name, region, master_account_bucket_name, resource_master_bucket_name, valid_ou_ids):
-    deploy_stackset.deploy_stackset_member_accounts(stackset_name, TEMPLATE_FILE, region, master_account_bucket_name, resource_master_bucket_name, LAMBDA_ROLE_NAME, valid_ou_ids)
+def deploy_stackset_module(stackset_name, region, management_account_bucket_name, resource_management_bucket_name, valid_ou_ids):
+    deploy_stackset.deploy_stackset_member_accounts(stackset_name, TEMPLATE_FILE, region, management_account_bucket_name, resource_management_bucket_name, LAMBDA_ROLE_NAME, valid_ou_ids)
 
-def generate_bucket_policy(master_account_bucket_name, valid_ou_ids):
+def generate_bucket_policy(management_account_bucket_name, valid_ou_ids):
     accounts_in_ous = []
     for ou_id in valid_ou_ids:
         accounts = org_client.list_accounts_for_parent(ParentId=ou_id)['Accounts']
@@ -71,7 +71,7 @@ def generate_bucket_policy(master_account_bucket_name, valid_ou_ids):
                     "s3:PutObject",
                     "s3:PutObjectAcl"
                 ],
-                "Resource": f"arn:aws:s3:::{master_account_bucket_name}/*",
+                "Resource": f"arn:aws:s3:::{management_account_bucket_name}/*",
                 "Condition": {
                     "ForAnyValue:StringLike": {
                         "aws:PrincipalOrgPaths": [f"{org_id}/{org_root_id}/{ou_id}/*" for ou_id in valid_ou_ids]
@@ -83,7 +83,7 @@ def generate_bucket_policy(master_account_bucket_name, valid_ou_ids):
 
     with open(OUTPUT_DATA_COLLECTOR_BUCKET_POLICY, 'w', encoding='utf-8') as policy_file:
         json.dump(policy, policy_file, indent=4)
-    print(f"Bucket policy JSON saved to {OUTPUT_DATA_COLLECTOR_BUCKET_POLICY} for bucket {master_account_bucket_name}")
+    print(f"Bucket policy JSON saved to {OUTPUT_DATA_COLLECTOR_BUCKET_POLICY} for bucket {management_account_bucket_name}")
 
 
 def main(bucket_name, resource_bucket_name):
@@ -96,8 +96,8 @@ def main(bucket_name, resource_bucket_name):
     deploy_stackset_module(
         stackset_name=stackset_name,
         region=region,
-        master_account_bucket_name=bucket_name,
-        resource_master_bucket_name=resource_bucket_name,
+        management_account_bucket_name=bucket_name,
+        resource_management_bucket_name=resource_bucket_name,
         valid_ou_ids=valid_ou_ids
     )
 

@@ -2,7 +2,7 @@ import boto3
 import time
 import os
 
-def deploy_lambda_function(bucket_name, master_account_bucket_name):
+def deploy_lambda_function(bucket_name, management_account_bucket_name):
     # Create CloudFormation client
     cf_client = boto3.client('cloudformation')
 
@@ -28,8 +28,8 @@ def deploy_lambda_function(bucket_name, master_account_bucket_name):
             'ParameterValue': role_name
         },
         {
-            'ParameterKey': 'MasterAccountBucketName',
-            'ParameterValue': master_account_bucket_name
+            'ParameterKey': 'ManagementAccountBucketName',
+            'ParameterValue': management_account_bucket_name
         },
         {
             'ParameterKey': 'MemberBucketName',
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--bucket-name', required=True, help='Name of the S3 bucket containing the Lambda package')
-    parser.add_argument('--master-account-bucket-name', required=True, help='Name of the S3 bucket in the master account')
+    parser.add_argument('--management-account-bucket-name', required=True, help='Name of the S3 bucket in the management account')
     args = parser.parse_args()
 
-    deploy_lambda_function(args.bucket_name, args.master_account_bucket_name)
+    deploy_lambda_function(args.bucket_name, args.management_account_bucket_name)

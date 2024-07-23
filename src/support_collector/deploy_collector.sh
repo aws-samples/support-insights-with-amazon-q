@@ -35,10 +35,10 @@ echo "**************************************************************************
 echo "Enter the OU IDs separated by commas: "
 read OU_IDS
 
-echo "Enter the data collection S3 bucket name in the master account: "
+echo "Enter the data collection S3 bucket name in the management account: "
 read DATA_BUCKET_NAME
 
-echo "Enter the resource S3 bucket name that will contain the Lambda package in the master account for deployment: "
+echo "Enter the resource S3 bucket name that will contain the Lambda package in the management account for deployment: "
 read RESOURCE_BUCKET_NAME
 
 # Check if the buckets exist

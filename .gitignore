@@ -1,0 +1,6 @@
+src/support_collector/support-collector-lambda/dns/*
+src/support_collector/support-collector-lambda/dnspython*/*
+src/support_collector/support-collector-lambda.zip
+src/support_collector/output_bucket_policy.json
+src/support_collector/__pycache__
+src/support_collector/.python-version

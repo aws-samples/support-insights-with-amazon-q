@@ -39,7 +39,7 @@ If you do not see the "AWSServiceRoleForQBusiness" service linked role in your a
 **c. Synchronize Amazon Q Datasource**
 
 The data source created above is scheduled to synchronize the data stored in provided Amazon S3 bucket every day at midnight UTC.
-1.	Login to AWS Account where the script was executed and navigate to the Amazon Q console and select your Q application with the name that was provided during deployment step.
+1. Login to AWS Account where the script was executed and navigate to the Amazon Q console and select your Q application with the name that was provided during deployment step.
 2. Select the datasource **qci-insights-datasource** and click **Sync now**.
 
 **d. Add Groups and Users Access**

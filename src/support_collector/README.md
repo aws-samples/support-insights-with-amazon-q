@@ -7,8 +7,9 @@ This repository contains scripts and resources to automate the deployment of AWS
 - An AWS account for resources with the necessary permissions to create and manage resources (IAM roles, Lambda functions, CloudFormation stacks, etc.).
 - A Support plan such as Business, Enterprise On-Ramp, or Enterprise Support to access the AWS Support API.
 - It is recommended to utilize AWS CloudShell, as it comes pre-installed with the required libraries and tools. Alternatively, you can use a local machine with the AWS CLI installed and configured with valid credentials.
-- An Amazon S3 bucket for Data Collection in Management Account
-- An Amazon S3 bucket for Resources for infrastructure deployment in Management Account
+- An Amazon S3 bucket for data collection in Management account
+- An Amazon S3 bucket for resources for infrastructure deployment in Management account
+
 
 ## Deployment dependencies
 If you use your local machine to deploy the solution, the following dependencies will be required for deploying the Lambda:
@@ -54,11 +55,11 @@ You have two options for deploying the necessary resources:
 
 ### Option 1: Leveraging AWS Organizations - Bulk Deployment via StackSet
 
-Utilize this option if you have AWS Organizations set up. You can leverage AWS CloudFormation StackSets across multiple linked or member accounts with a single operation. AWS Organizations integrates with CloudFormation, enabling centralized management as you scale across multiple accounts. It will setup the lambda function and EventBridge in all the AWS accounts that accounts that belong to the AWS Organization units provided by the user.
+Use this option if you have AWS Organizations set up. You can leverage AWS CloudFormation StackSets across multiple linked or member accounts with a single operation. AWS Organizations integrates with CloudFormation, enabling centralized management as you scale across multiple accounts. It will setup the Lambda function and EventBridge in all the AWS accounts that belong to the AWS Organization units provided by the user.
 
 #### Resource Bucket Policy
 
-Before running the deployment scripts, ensure that the bucket policy of the Resource S3 bucket (in the Data Collection Central account) is updated to grant access to the organizational units (OUs) where the member accounts reside. Replace the placeholders in the following bucket policy with your specific values:
+Before running the deployment scripts, ensure that the bucket policy of the resource S3 bucket is updated to grant access to the organizational units (OUs) where the member accounts reside. Replace the placeholders in the following bucket policy with your specific values:
 
 ```json
 {
@@ -79,7 +80,10 @@ Before running the deployment scripts, ensure that the bucket policy of the Reso
             ],
             "Condition": {
                 "ForAnyValue:StringLike": {
-                    "aws:PrincipalOrgPaths": "<organization-id>/<root-id>/<ou-id>/*"
+                    "aws:PrincipalOrgPaths": [
+                        "<organization-id>/<root-id>/<ou-id1>/*",
+                        "<organization-id>/<root-id>/<ou-id2>/*"
+                    ]
                 }
             }
         }
@@ -148,7 +152,10 @@ Optionally, you can copy the JSON from the `output_bucket_policy.json` file gene
             "Resource": "arn:aws:s3:::DATA-COLLECTOR_BUCKET/*",
             "Condition": {
                 "ForAnyValue:StringLike": {
-                    "aws:PrincipalOrgPaths": "o-xxxxxxxxxx/r-xxxx/ou-xxxx-xxxxxxxx/*"
+                    "aws:PrincipalOrgPaths": [
+                        "<organization-id>/<root-id>/<ou-id1>/*",
+                        "<organization-id>/<root-id>/<ou-id2>/*"
+                    ]
                 }
             }
         }

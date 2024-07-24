@@ -1,38 +1,42 @@
 #!/bin/bash
 echo "*******************************************************************"
-echo "* WARNING: Before running this script, make sure you have         *"
-echo "* updated the bucket policy of the resource bucket to give        *"
-echo "* access to download the lambda package for the  accounts         *"
-echo "* residing in the organizational units; they will need to use     *"
-echo "* the bucket for deployment. The bucket policy should look        *" 
-echo "* similar to the following:                                       *"
-echo "*                                                                 *"
-echo "* {                                                               *"
-echo "*     \"Version\": \"2012-10-17\",                                *"
-echo "*     \"Statement\": [                                            *"
-echo "*         {                                                       *"
-echo "*             \"Sid\": \"AllowAccessToQInsightsCollectorBucket\", *"
-echo "*             \"Effect\": \"Allow\",                              *"
-echo "*             \"Principal\": \"*\",                               *"
-echo "*             \"Action\": [                                       *"
-echo "*                 \"s3:GetObject\",                               *"
-echo "*                 \"s3:ListBucket\",                              *"
-echo "*                 \"s3:PutObject\"                                *"
-echo "*             ],                                                  *"
-echo "*             \"Resource\": [                                     *"
-echo "*                 \"arn:aws:s3:::<bucket_name>\",                 *"
-echo "*                 \"arn:aws:s3:::<bucket_name>/*\"                *"
-echo "*             ],                                                  *"
-echo "*             \"Condition\": {                                    *"
-echo "*                 \"ForAnyValue:StringLike\": {                   *"
-echo "*                     \"aws:PrincipalOrgPaths\": \"o-xxxxxxxxxx/r-xxxx/ou-xxxx-xxxxxxxx/*\" *"
-echo "*             }                                                                             *"
-echo "*         }                                                                                 *"
-echo "*     ]                                                                                     *"
-echo "* }                                                                                         *"
-echo "*********************************************************************************************"
+echo "* WARNING: Before running this script, make sure you have                                      *"
+echo "* updated the bucket policy of the resource bucket to give                                     *"
+echo "* access to download the Lambda package for the accounts                                       *"
+echo "* residing in the organizational units; they will need to use                                  *"
+echo "* the bucket for deployment. The bucket policy should look                                     *" 
+echo "* similar to the following:                                                                    *"
+echo "*                                                                                              *"
+echo "* {                                                                                            *"
+echo "*     \"Version\": \"2012-10-17\",                                                             *"
+echo "*     \"Statement\": [                                                                         *"
+echo "*         {                                                                                    *"
+echo "*             \"Sid\": \"AllowAccessToQInsightsCollectorBucket\"                               *"
+echo "*             \"Effect\": \"Allow\",                                                           *"
+echo "*             \"Principal\": \"*\",                                                            *"
+echo "*             \"Action\": [                                                                    *"
+echo "*                 \"s3:GetObject\",                                                            *"
+echo "*                 \"s3:ListBucket\",                                                           *"
+echo "*                 \"s3:PutObject\"                                                             *"
+echo "*             ],                                                                               *"
+echo "*             \"Resource\": [                                                                  *"
+echo "*                 \"arn:aws:s3:::<bucket_name>\",                                              *"
+echo "*                 \"arn:aws:s3:::<bucket_name>/*\"                                             *"
+echo "*             ],                                                                               *"
+echo "*             \"Condition\": {                                                                 *"
+echo "*                 \"ForAnyValue:StringLike\": {                                                *"
+echo "*                     \"aws:PrincipalOrgPaths\": [                                             *"
+echo "*                          \"o-xxxxxxxxxx/r-xxxx/ou-xxxx-xxxxxxx1/*\",                         *"
+echo "*                          \"o-xxxxxxxxxx/r-xxxx/ou-xxxx-xxxxxxx2/*\"                          *"
+echo "*                     ]                                                                        *"
+echo "*                 }                                                                            *"
+echo "*             }                                                                                *"
+echo "*         }                                                                                    *"
+echo "*     ]                                                                                        *"
+echo "* }                                                                                            *"
+echo "************************************************************************************************"
 
-echo "Enter the OU IDs separated by commas: "
+echo "Enter the OU IDs separated by commas (ie: ou-xxxxxxxxxx1,ou-xxxxxxxxxx2): "
 read OU_IDS
 
 echo "Enter the data collection S3 bucket name in the management account: "
@@ -43,12 +47,12 @@ read RESOURCE_BUCKET_NAME
 
 # Check if the buckets exist
 if ! aws s3 ls "s3://${DATA_BUCKET_NAME}" 2>/dev/null; then
-    echo "Error: The bucket '${DATA_BUCKET_NAME}' does not exist or you don't have permission to access it."
+    echo "Error: The bucket '${DATA_BUCKET_NAME}' does not exist or you do not have permission to access it."
     exit 1
 fi
 
 if ! aws s3 ls "s3://${RESOURCE_BUCKET_NAME}" 2>/dev/null; then
-    echo "Error: The bucket '${RESOURCE_BUCKET_NAME}' does not exist or you don't have permission to access it."
+    echo "Error: The bucket '${RESOURCE_BUCKET_NAME}' does not exist or you do not have permission to access it."
     exit 1
 fi
 
@@ -59,7 +63,7 @@ echo "Installing dependencies into a temporary directory..."
 mkdir temp_dir
 pip3 install -r requirements.txt -t temp_dir/
 
-echo "Copying dependencies to the lambda directory..."
+echo "Copying dependencies to the Lambda directory..."
 cp -r temp_dir/* support-collector-lambda/
 
 echo "Creating deployment package..."

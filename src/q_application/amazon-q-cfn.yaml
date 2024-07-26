@@ -20,7 +20,6 @@ Resources:
       DisplayName: !Ref QBusinessApplicationName
       Description: Q Support Insights
       IdentityCenterInstanceArn: !Ref IAMIdentityCenterARN
-      RoleArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/qbusiness.amazonaws.com/AWSServiceRoleForQBusiness
 
   QBusinessWebExperienceServiceRole:
     Type: AWS::IAM::Role

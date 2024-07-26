@@ -24,32 +24,25 @@ chmod +x deploy_cfn.sh
 ```
 3. Provide the inputs as requested in the script.
 
-**b. Create the Service Linked Role (if not present)**
+If you get an error such as 
+> Exiting from script. Amazon Q Business is only available in us-west-2 and us-east-1. Re-run script in us-west-2 or us-east-1.
 
-This step will create an IAM role that is linked to a specific AWS service, here Amazon Q Business.
-If you do not see the "AWSServiceRoleForQBusiness" service linked role in your account (under IAM > roles), then you need to create it to make sure the indexing works as expected.
-1. Open the IAM roles console page in your region, ie: for us-east-1: https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/roles.
-2. Click **Create role**.
-3. In "Trusted entity type", select **AWS service**.
-4. In "Use case" section, under "Service or use case", select **Amazon Q Business**.
-5. Click **Next** and you will see the "Add permissions" screen. Here the default policy "QBusinessServiceRolePolicy" is already selected.
-6. Click **Next**.
-7. Click **Create role**.
+Please ensure you are in the region where the Identity Center is deployed. You can also update the environment variable in your shell environment to ensure you are using the correct region: `export AWS_REGION=us-west-2`.
 
-**c. Synchronize Amazon Q Datasource**
+**b. Synchronize Amazon Q Datasource**
 
 The data source created above is scheduled to synchronize the data stored in provided Amazon S3 bucket every day at midnight UTC.
 1. Login to AWS Account where the script was executed and navigate to the Amazon Q console and select your Q application with the name that was provided during deployment step.
 2. Select the datasource **qci-insights-datasource** and click **Sync now**.
 
-**d. Add Groups and Users Access**
+**c. Add Groups and Users Access**
 
 1.	Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in previous step.
 2. Navigate to **Groups and users** and click on **Add Groups and users**, select **Assign existing users and groups**, click **Next** and click **Get Started**.
 3. In the Assign users and groups window, use the search box to find users and groups by name. Click **Assign** to add the group/users to the application.
 4. Selected the newly added user/group, click **Choose Subscription**, select **Q Business Pro/Q Business Lite**.
 
-**r. Use Web Experience**
+**d. Use Web Experience**
 
 At this stage, the Amazon Q Application with web experience is created.
 1.	Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in above Step.

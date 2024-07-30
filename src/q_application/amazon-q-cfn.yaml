@@ -13,7 +13,6 @@ Parameters:
     Type: String
  
 Resources:
-
   QBusinessApp:
     Type: AWS::QBusiness::Application
     Properties:
@@ -42,9 +41,7 @@ Resources:
       Path: /service-role/
       ManagedPolicyArns:
         - !Ref QBusinessWebExperienceServiceManagedPolicy
-    DependsOn:
-      - QBusinessWebExperienceServiceManagedPolicy
-      
+
   QBusinessWebExperienceServiceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:      
@@ -99,7 +96,6 @@ Resources:
             -  "qapps:StartQAppSession"
             -  "qapps:StopQAppSession"
             Resource: !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
-                 
 
   QBusinessDataSourceRole:
     Type: AWS::IAM::Role
@@ -121,8 +117,6 @@ Resources:
       Path: /service-role/
       ManagedPolicyArns:
         - !Ref QBusinessDataSourceManagedPolicy
-    DependsOn:
-      - QBusinessDataSourceManagedPolicy
 
   QBusinessDataSourceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -182,7 +176,6 @@ Resources:
      DisplayName: qci-insights-index
      Type: NATIVE_INDEX
 
-
   QBusinessWebExperience:
     Type: AWS::QBusiness::WebExperience
     Properties:
@@ -190,7 +183,6 @@ Resources:
      RoleArn: !GetAtt QBusinessWebExperienceServiceRole.Arn
      Title: Q Support Insights 
 
-  
   QBusinessDataSource:
     Type: AWS::QBusiness::DataSource
     Properties:

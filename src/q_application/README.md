@@ -14,19 +14,18 @@ The steps below will utilize a shell script which will check the pre-requisites 
 
 Please make sure you are in in a [AWS Region that is supported by Amazon Q (us-east-1 or us-west-2)](https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/quotas-regions.html).
 
-1. Download the following file: [CloudFormation Template](/q_application/amazon-q-cfn.yaml).
-
-us-east-1: [![cloudformation-launch-button](../..//img/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=amazon-q-cfn&templateURL=https://raw.githubusercontent.com/aws-samples/support-insights-with-amazon-q/deployment_update_idc_regions/src/q_application/amazon-q-cfn.yaml)
-us-west-2 [![cloudformation-launch-button](../../img/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=amazon-q-cfn&templateURL=https://raw.githubusercontent.com/aws-samples/support-insights-with-amazon-q/deployment_update_idc_regions/src/q_application/amazon-q-cfn.yaml)
+1. Download the following file: [CloudFormation Template](amazon-q-cfn.yaml).
 
 2. Go to [AWS CloudFormation](https://console.aws.amazon.com/cloudformation/home) in us-east-1 or us-west-2 region, click on **Create stack** and select **With new resources**.
 
-3. Give the stack a name `amazon-q-cfn` and provide the requested parameters.
+3. Give the stack a name such as `amazon-q-cfn` and provide the requested parameters.
+    a. `IAMIdentityCenterARN`: Provide the ARN for your IAM Identity Center Instance.
+    b. `QBusinessApplicationName`: Provide a friendly name for your Q Business application.
+    c. `S3DataSourceBucket`: Create a bucket in the Data Collection account that contains (or will contain) the support data.
 
 4. Click through to the last page and check the box to acknowledge IAM creation.  
 
 5. Verify stack status is **CREATE_COMPLETE**  (takes about ~15-20 minutes to deploy and trigger all the GuardDuty findings)
-
 
 ### b. Synchronize Amazon Q Datasource
 

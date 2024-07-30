@@ -6,7 +6,7 @@ Parameters:
     Description: The name of the S3 bucket that contains the data for the data source
     Type: String
   IAMIdentityCenterARN:
-    Description: IAM Identity Center is prerequisite to configure Q Business application. Provide the IAM Identity Instance ARN
+    Description: IAM Identity Center is prerequisite to configure Q Business application. Provide the IAM Identity Center instance ARN
     Type: String
   QBusinessApplicationName:
     Description: The name of your Q Business Application

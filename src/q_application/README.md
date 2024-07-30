@@ -14,7 +14,7 @@ The steps below will utilize a shell script which will check the pre-requisites 
 
 1. Download the following file: [CloudFormation Template](amazon-q-cfn.yaml).
 
-2. Go to [AWS CloudFormation](https://console.aws.amazon.com/cloudformation/home) in us-east-1 or us-west-2 region, click on **Create stack** and select **With new resources**.
+2. Go to [AWS CloudFormation](https://console.aws.amazon.com/cloudformation/home) in a [region supported by Amazon Q](https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/quotas-regions.html), click on **Create stack** and select **With new resources**.
 
 3. Give the stack a name such as `amazon-q-cfn` and provide the requested parameters.
     a. `IAMIdentityCenterARN`: Provide the ARN for your IAM Identity Center Instance.

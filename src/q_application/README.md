@@ -16,9 +16,9 @@ The steps below will utilize a shell script which will check the pre-requisites 
 2. Go to [AWS CloudFormation](https://console.aws.amazon.com/cloudformation/home) in a [region supported by Amazon Q](https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/quotas-regions.html), click on **Create stack** and select **With new resources**.
 
 3. Give the stack a name such as `amazon-q-cfn` and provide the requested parameters.
-    a. `IAMIdentityCenterARN`: Provide the ARN for your IAM Identity Center Instance.
-    b. `QBusinessApplicationName`: Provide a friendly name for your Q Business application.
-    c. `S3DataSourceBucket`: Create a bucket in the Data Collection account that contains (or will contain) the support data.
+a. `IAMIdentityCenterARN`: Provide the ARN for your IAM Identity Center Instance. To find the ARN, open the IAM Identity Center console page in the region where you have created your instance, and click **Go to Settings** to copy the ARN.
+b. `QBusinessApplicationName`: Provide a friendly name for your Q Business application.
+c. `S3DataSourceBucket`: Create a bucket in the Data Collection account that contains (or will contain) the support data.
 
 4. Click through to the last page and check the box to acknowledge IAM creation.  
 

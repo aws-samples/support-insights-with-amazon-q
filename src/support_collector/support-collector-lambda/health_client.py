@@ -3,9 +3,12 @@
 from region_lookup import active_region
 import boto3
 
+
 class ActiveRegionHasChangedError(Exception):
     """Rasied when the active region has changed"""
+
     pass
+
 
 class HealthClient:
     __active_region = None
@@ -24,9 +27,17 @@ class HealthClient:
                 if HealthClient.__client:
                     HealthClient.__client = None
 
-                raise ActiveRegionHasChangedError('Active region has changed from [' + old_active_region + '] to [' + current_active_region + ']')
+                raise ActiveRegionHasChangedError(
+                    "Active region has changed from ["
+                    + old_active_region
+                    + "] to ["
+                    + current_active_region
+                    + "]"
+                )
 
         if not HealthClient.__client:
-            HealthClient.__client = boto3.client('health', region_name=HealthClient.__active_region)
+            HealthClient.__client = boto3.client(
+                "health", region_name=HealthClient.__active_region
+            )
 
         return HealthClient.__client

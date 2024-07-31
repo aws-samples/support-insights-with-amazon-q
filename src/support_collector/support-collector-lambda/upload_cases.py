@@ -1,49 +1,50 @@
-import boto3
 import json
-import sys
 import datetime
-from datetime import timedelta
 from collections import defaultdict
-from botocore.exceptions import ClientError
 import logging
+import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 session = boto3.Session()
 
+
 def save_to_s3(cases_by_account, bucket_name):
     region = session.region_name
-    s3 = session.client('s3', region_name=region)
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")  # Format the date as YYYY-MM-DD
+    s3 = session.client("s3", region_name=region)
+    current_date = datetime.datetime.now().strftime(
+        "%Y-%m-%d"
+    )  # Format the date as YYYY-MM-DD
 
     print(f"The Support cases are being uploaded to S3 bucket {bucket_name}...")
     for account_id, cases in cases_by_account.items():
         for case in cases:
             case_id = case["case"]["displayId"]  # Extracting case ID for filename
-            case_json = json.dumps(case, ensure_ascii=False).encode('utf-8')  # Serialize case data to JSON with UTF-8 encoding
+            case_json = json.dumps(case, ensure_ascii=False).encode(
+                "utf-8"
+            )  # Serialize case data to JSON with UTF-8 encoding
             file_key = f"support-cases/{account_id}/{current_date}/{case_id}.json"
-            s3.put_object(
-                Bucket=bucket_name,
-                Key=file_key,
-                Body=case_json
-            )
+            s3.put_object(Bucket=bucket_name, Key=file_key, Body=case_json)
             print(f"Uploaded {file_key}")
     print("Support cases upload done!")
-  
+
+
 def get_support_cases(credentials):
     support_client = session.client(
-        'support',
-        aws_access_key_id=credentials['AccessKeyId'],
-        aws_secret_access_key=credentials['SecretAccessKey'],
-        aws_session_token=credentials['SessionToken'],
+        "support",
+        aws_access_key_id=credentials["AccessKeyId"],
+        aws_secret_access_key=credentials["SecretAccessKey"],
+        aws_session_token=credentials["SessionToken"],
     )
     cases = []
-    paginator = support_client.get_paginator('describe_cases')
+    paginator = support_client.get_paginator("describe_cases")
     for page in paginator.paginate():
-        cases.extend(page['cases'])
+        cases.extend(page["cases"])
     return cases
-    
+
+
 def describe_cases(after_time, resolved):
     """
     Describe support cases over a period of time, optionally filtering
@@ -55,9 +56,9 @@ def describe_cases(after_time, resolved):
         otherwise results are open cases.
     :return: The final status of the case.
     """
+    cases = []
     try:
-        support_client = session.client('support')
-        cases = []
+        support_client = session.client("support")
         paginator = support_client.get_paginator("describe_cases")
         for page in paginator.paginate(
             afterTime=after_time,
@@ -80,18 +81,18 @@ def describe_cases(after_time, resolved):
                 err.response["Error"]["Message"],
             )
             raise
-    else:
-        return cases
-        
+    return cases
+
+
 def list_all_cases(days):
-  
-  includeCommunications=True
-  end_date = datetime.datetime.utcnow().date()
-  start_date = end_date - datetime.timedelta(days)
-  start_time = str(start_date)
-  all_cases = describe_cases(start_time, includeCommunications)
-  
-  return all_cases
+
+    include_communications = True
+    end_date = datetime.datetime.now(datetime.UTC)
+    start_date = end_date - datetime.timedelta(days)
+    start_time = str(start_date)
+    all_cases = describe_cases(start_time, include_communications)
+
+    return all_cases
 
 
 def create_support_case_context(case, account_id):
@@ -115,7 +116,9 @@ def upload_all_cases_to_s3(bucket_name, past_no_of_days, account_id):
         case_dict = {
             "account_id": account_id,
             "case": case,
-            "support_case_context": create_support_case_context(case, account_id)  # Add the custom field
+            "support_case_context": create_support_case_context(
+                case, account_id
+            ),  # Add the custom field
         }
         cases_by_account[account_id].append(case_dict)
 

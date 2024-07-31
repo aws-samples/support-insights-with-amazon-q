@@ -1,0 +1,14 @@
+[MASTER]
+
+ignore=.git
+
+
+[MESSAGES CONTROL]
+# docstring: C0114,C0115,C0116
+# line too long: C0301
+# unecessary pass statement: W0107
+# unused variable: W0612
+# Too few public methods: R0903 
+# Too many arguments: R0913
+# broad-exception-caught: W0718
+disable=C0114,C0115,C0116,C0301,W0107,W0612,R0903,R0913,W0718

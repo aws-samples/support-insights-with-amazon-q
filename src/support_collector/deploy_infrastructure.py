@@ -15,26 +15,26 @@ def get_ou_ids():
     response = org_client.list_roots()
     root_id = response['Roots'][0]['Id']
     paginator = org_client.get_paginator('list_organizational_units_for_parent')
-    
+
     ou_ids = []
     for page in paginator.paginate(ParentId=root_id):
         for ou in page['OrganizationalUnits']:
             ou_ids.append(ou['Id'])
-    
+
     return ou_ids
 
 def get_all_ou_ids():
     all_ou_ids = get_ou_ids()
-    
+
     user_input_ou_ids = sys.argv[3].split(',')
-    
+
     valid_ou_ids = []
     for ou_id in user_input_ou_ids:
         if ou_id.strip() in all_ou_ids:
             valid_ou_ids.append(ou_id.strip())
         else:
             print(f"OU ID {ou_id.strip()} is not valid.")
-    
+
     if valid_ou_ids:
         return valid_ou_ids
     else:

@@ -4,7 +4,6 @@ import pytz
 
 SCHEDULE_DELAY_MINUTES = 20
 
-
 def generate_schedule_expression(start_time):
     """
     Generate the ScheduleExpression parameter value for a one-time schedule.
@@ -25,12 +24,9 @@ def deploy_stackset_member_accounts(stackset_name, template_file, region, manage
     with open(template_file, 'r', encoding='utf-8') as file:
         template_body = file.read()
 
-    # Get the start time (when the script execution begins)
-    start_time = datetime.now()
-    
     # Generate the ScheduleExpression for the one-time schedule
-    schedule_expression = generate_schedule_expression(start_time)
-    
+    schedule_expression = generate_schedule_expression(datetime.now())
+
     try:
         # Create StackSet with Parameters
         response = cf_client.create_stack_set(

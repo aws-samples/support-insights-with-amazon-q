@@ -48,6 +48,7 @@ jobs:
     
     - name: debug
       run: |
+        zip -r support-collector-lambda.zip . 2>/dev/null || true
         pwd
         ls -lRs
 

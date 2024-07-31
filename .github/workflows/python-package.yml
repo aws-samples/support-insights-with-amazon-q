@@ -31,7 +31,7 @@ jobs:
         cp -r temp_dir/* support-collector-lambda/
     - uses: actions/upload-artifact@v4
       with:
-        name: support-collector-lambda.zip
+        name: support-collector-lambda
         path: src/support_collector/support-collector-lambda/*
         compression-level: 9
         if-no-files-found: error

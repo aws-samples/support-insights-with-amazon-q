@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.11"]
 
     steps:
     - uses: actions/checkout@v4
@@ -30,11 +30,9 @@ jobs:
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt -t temp_dir/ ; fi
         cp -r temp_dir/* support-collector-lambda/
-        cd support-collector-lambda
-        zip -r ../support-collector-lambda.zip . -x '*.DS_Store' 2>/dev/null || true
     - uses: actions/upload-artifact@v4
       with:
         name: support-collector-lambda.zip
-        path: src/support_collector/support-collector-lambda.zip
+        path: src/support_collector/support-collector-lambda/*
         compression-level: 9
         if-no-files-found: error

@@ -1,13 +1,12 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# This workflow will install Python dependencies, and package the Lambda function
 
-name: Package support-collector-lambda
+name: Package and release support-collector-lambda
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    # tags:
+    #   - '*'
 
 jobs:
   build:
@@ -36,3 +35,20 @@ jobs:
         path: src/support_collector/support-collector-lambda/*
         compression-level: 9
         if-no-files-found: error
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    # if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: support-collector-lambda.zip
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: support-collector-lambda.zip
+        make_latest: true

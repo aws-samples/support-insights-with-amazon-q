@@ -45,10 +45,10 @@ jobs:
     - name: Download Artifact
       uses: actions/download-artifact@v4
       with:
-        name: support-collector-lambda.zip
+        name: support-collector-lambda
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        files: support-collector-lambda.zip
+        files: support-collector-lambda
         make_latest: true

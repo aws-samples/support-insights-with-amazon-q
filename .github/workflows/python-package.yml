@@ -50,5 +50,5 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        files: support-collector-lambda
+        files: support-collector-lambda.zip
         make_latest: true

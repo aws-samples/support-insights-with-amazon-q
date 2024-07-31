@@ -10,10 +10,11 @@ This repository contains scripts and resources to automate the deployment of AWS
 - An Amazon S3 bucket for data collection in Management account
 - An Amazon S3 bucket for resources for infrastructure deployment in Management account
 
-
 ## Deployment dependencies
+
 If you use your local machine to deploy the solution, the following dependencies will be required for deploying the Lambda:
-```
+
+```text
 boto3==1.34.146
 pytz==2024.1
 ```
@@ -92,8 +93,6 @@ Before running the deployment scripts, ensure that the bucket policy of the reso
 ```
 
 To find the `<organization-id>`, `<root-id>`, and `<ou-id>` values, refer to the AWS Organizations User Guide: [Viewing Details of an Organization](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_details.html#orgs_view_ou). Note that the organization ID starts with the prefix o-, the root ID starts with r-, and the OU ID starts with ou-  (e.g., o-xxxxx/r-xxxxx/ou-xxxxx).
-
-
 
 #### Deployment Steps
 
@@ -282,12 +281,15 @@ To clean up the deployed resources, follow these steps:
    - Delete the StackSet.
 
    Alternatively, you can use the CLI commands as below:
-   - Delete the Stack Instances (replace the placeholders):
-   ```
+   - Delete the Stack instances (replace the placeholders):
+
+   ```bash
    aws cloudformation delete-stack-instances --stack-set-name support-insights-stackset-<time-stamp> --deployment-targets OrganizationalUnitIds=<ou ids> --regions us-west-2 --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1 --no-retain-stacks
    ```
+
    - Delete the StackSet:
-   ```
+
+   ```bash
    aws cloudformation delete-stack-set --stack-set-name support-insights-stackset-<time-stamp>
    ```
 
@@ -297,11 +299,12 @@ To clean up the deployed resources, follow these steps:
    - Delete the stack.
 
    Alternatively, you can use the CLI command:
-   ```
+
+   ```bash
    aws cloudformation delete-stack --stack-name SupportInsightsLambdaStack
    ```
 
-> **Warning:** Before proceeding with the next step, ensure that no critical data is present in the S3 bucket containing the support data. Deleting the S3 bucket will permanently remove all data stored in it.
+    > **Warning:** Before proceeding with the next step, ensure that no critical data is present in the S3 bucket containing the support data. Deleting the S3 bucket will permanently remove all data stored in it.
 
 3. Empty and delete the S3 bucket containing the support data.
 

@@ -1,0 +1,40 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Package support-collector-lambda
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Package Lambda
+      run: |
+        cd src/support_collector
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt -t temp_dir/ ; fi
+        cp -r temp_dir/* support-collector-lambda/
+        cd support-collector-lambda
+        zip -r ../support-collector-lambda.zip . -x '*.DS_Store' 2>/dev/null || true
+    - uses: actions/upload-artifact@v4
+      with:
+        name: src/support_collector/support-collector-lambda.zip
+        path: src/support_collector/support-collector-lambda.zip
+        compression-level: 9
+        if-no-files-found: error

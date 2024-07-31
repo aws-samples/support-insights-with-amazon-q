@@ -85,9 +85,8 @@ def describe_cases(after_time, resolved):
 
 
 def list_all_cases(days):
-
     include_communications = True
-    end_date = datetime.datetime.now(datetime.UTC)
+    end_date = datetime.datetime.utcnow().date()
     start_date = end_date - datetime.timedelta(days)
     start_time = str(start_date)
     all_cases = describe_cases(start_time, include_communications)

@@ -6,6 +6,7 @@ The steps below will utilize a shell script which will check the pre-requisites 
 
  1. Use an [AWS Region that is supported by Amazon Q (us-east-1 or us-west-2 at this time)](https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/quotas-regions.html)
  2. [AWS IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html) as the SAML 2.0-compliant identity provider (IdP) configured. Q Business will make cross-regions API calls to fetch the identity and attributes from the cross-region Identity Center instance to authenticate users, and authorize user access to the content they are allowed to access. Please ensure that you have enabled an [IAM Identity Center instance](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html), provisioned at least one user, and provided each user with a valid email address. For more details, see [Configure user access](https://docs.aws.amazon.com/singlesignon/latest/userguide/quick-start-default-idc.html) with the default IAM Identity Center directory.
+ 3. Have a S3 bucket in the Data Collection account to contain supoprt data. To simplify deployment, here we use the payer/management account as the Data Collection account.
 
 ## Deployment
 

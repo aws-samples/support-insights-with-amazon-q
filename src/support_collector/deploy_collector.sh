@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "*******************************************************************"
+echo "************************************************************************************************"
 echo "* WARNING: Before running this script, make sure you have                                      *"
 echo "* updated the bucket policy of the resource bucket to give                                     *"
 echo "* access to download the Lambda package for the accounts                                       *"
@@ -42,6 +42,14 @@ read OU_IDS
 echo "Enter the data collection S3 bucket name in the management account: "
 read DATA_BUCKET_NAME
 
+echo "Do you want the script to overwrite the data collection bucket policy on your behalf? This requires PutBucketPolicy permission and it will OVERWRITE the current policy. If the policy is not set, the data from member accounts may not be saved properly. (Y/N, default: Y): "
+read OVERWRITE_DATA_BUCKET_POLICY_ANSWER
+if [ "$OVERWRITE_DATA_BUCKET_POLICY_ANSWER" != "${OVERWRITE_DATA_BUCKET_POLICY_ANSWER#[Yy]}" ] ;then 
+    OVERWRITE_DATA_BUCKET_POLICY=--overwrite-data-bucket-policy
+else
+    OVERWRITE_DATA_BUCKET_POLICY="--no-overwrite-data-bucket-policy"
+fi
+
 echo "Enter the resource S3 bucket name that will contain the Lambda package in the management account for deployment: "
 read RESOURCE_BUCKET_NAME
 
@@ -73,10 +81,10 @@ cd ..
 
 echo "Current directory: $PWD"
 
-# Clean up the temporary directory
+Clean up the temporary directory
 rm -rf temp_dir
 echo "Uploading deployment package to S3..."
 aws s3 cp support-collector-lambda.zip s3://${RESOURCE_BUCKET_NAME}/
 
 echo "Invoking deploy_infrastructure.py..."
-python3 deploy_infrastructure.py "${DATA_BUCKET_NAME}" "${RESOURCE_BUCKET_NAME}" "${OU_IDS}"
+python3 deploy_infrastructure.py --data-bucket "${DATA_BUCKET_NAME}" --resource-bucket "${RESOURCE_BUCKET_NAME}" --ou-ids "${OU_IDS}" "${OVERWRITE_DATA_BUCKET_POLICY}"

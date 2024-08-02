@@ -1,8 +1,8 @@
 import sys
 from datetime import datetime
 import json
-import boto3
 import argparse
+import boto3
 
 import deploy_stackset
 
@@ -131,7 +131,9 @@ def deploy_support_collector_resources(
     return stackset_name_result, operation_id
 
 
-def deploy_support_collector_historic_sync_rule(data_bucket_name, region, valid_ou_ids, stackset_name):
+def deploy_support_collector_historic_sync_rule(
+    data_bucket_name, region, valid_ou_ids, stackset_name
+):
     stack_params = [
         {
             "ParameterKey": "SupportDataManagementBucketName",
@@ -140,12 +142,14 @@ def deploy_support_collector_historic_sync_rule(data_bucket_name, region, valid_
     ]
 
     # after all stack are created, the policy on the bucket is set so we can deploy a stackset to run one time historical sync
-    stackset_name_result, operation_id = deploy_stackset.deploy_stackset_member_accounts(
-        stackset_name,
-        TEMPLATE_HISTORICAL_SYNC_FILE,
-        region,
-        stack_params,
-        valid_ou_ids,
+    stackset_name_result, operation_id = (
+        deploy_stackset.deploy_stackset_member_accounts(
+            stackset_name,
+            TEMPLATE_HISTORICAL_SYNC_FILE,
+            region,
+            stack_params,
+            valid_ou_ids,
+        )
     )
     return stackset_name_result, operation_id
 
@@ -186,8 +190,10 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
         print(
             "Not waiting for the CloudFormation StackSets to complete to update data bucket policy..."
         )
-    
-    print('Deploying a stack set with a one time rule to trigger a sync of the historical support data...')
+
+    print(
+        "Deploying a stack set with a one time rule to trigger a sync of the historical support data..."
+    )
     stackset_name = f"{STACKSET_HISTORICAL_PREFIX}-{timestamp}"
     stackset_name_result, operation_id = deploy_support_collector_historic_sync_rule(
         data_bucket_name=data_bucket_name,
@@ -197,8 +203,8 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
     )
 
     print(
-            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to verify success... Please do not exit this shell."
-        )
+        f"Now waiting for the CloudFormation StackSets {stackset_name_result} to verify success... Please do not exit this shell."
+    )
     if deploy_stackset.wait_for_stackset_creation(stackset_name_result, operation_id):
         print("StackSet completed! All done.")
 

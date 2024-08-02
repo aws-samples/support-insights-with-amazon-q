@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
+import time
 import pytz
 import boto3
 from botocore.exceptions import ClientError
-import time
 
 SCHEDULE_DELAY_MINUTES = 1
 
@@ -63,6 +63,7 @@ def deploy_stackset_member_accounts(
         print(f"Error in deploying StackSet: {e}")
     return stackset_name, operation_id
 
+
 def wait_for_stackset_creation(stackset_name, operation_id):
     cf_client = boto3.client("cloudformation")
 
@@ -85,17 +86,16 @@ def wait_for_stackset_creation(stackset_name, operation_id):
     while True:
         try:
             operation_response = cf_client.describe_stack_set_operation(
-                StackSetName=stackset_name,
-                OperationId=operation_id
+                StackSetName=stackset_name, OperationId=operation_id
             )
-            status = operation_response['StackSetOperation']['Status']
-            if status == 'SUCCEEDED':
-                print('StackSet operation completed successfully.')
+            status = operation_response["StackSetOperation"]["Status"]
+            if status == "SUCCEEDED":
+                print("StackSet operation completed successfully.")
                 break
-            if status == 'FAILED':
-                print('StackSet operation failed, please check console for details.')
+            if status == "FAILED":
+                print("StackSet operation failed, please check console for details.")
                 break
-            print(f'StackSet operation status: {status}')
+            print(f"StackSet operation status: {status}")
             time.sleep(15)
         except ClientError as e:
             print(f'Error: {e.response["Error"]["Message"]}')
@@ -118,7 +118,7 @@ if __name__ == "__main__":
         "--region", required=True, help="AWS region for the StackSet deployment"
     )
     parser.add_argument(
-        "--management-account-bucket-name",
+        "--support-data-management-bucket-name",
         required=True,
         help="Name of the S3 bucket in the management account for data collection",
     )
@@ -138,12 +138,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    params = [
+        {"ParameterKey": "LambdaRoleName", "ParameterValue": args.role_name},
+        {
+            "ParameterKey": "SupportDataManagementBucketName",
+            "ParameterValue": args.support_data_management_bucket_name,
+        },
+        {
+            "ParameterKey": "ResourceManagementBucketName",
+            "ParameterValue": args.resource_management_bucket_name,
+        },
+    ]
     deploy_stackset_member_accounts(
-        args.stackset_name,
-        args.template_file,
-        args.region,
-        args.management_account_bucket_name,
-        args.resource_management_bucket_name,
-        args.role_name,
-        args.valid_ou_ids,
+        stackset_name=args.stackset_name,
+        template_file=args.template_file,
+        region=args.region,
+        stack_params=params,
+        valid_ou_ids=args.valid_ou_ids
     )

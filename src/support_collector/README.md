@@ -222,7 +222,7 @@ If you want to store the data in a central bucket, you need to update the bucket
 }
 ```
 
-Replace `<member_account_id>` with the actual AWS account ID of the member account, and `<your-bucket-name>` with the name of the S3 bucket in the Data Collection Central account. You can add multiple accounts. Please note 'SupportInsightsLambdaRole-9c8794ee-f9e' is going to be the name of the role created in the member accounts to grant permission to Lambda function as indicated in the deployment steps below .
+Replace `<member_account_id>` with the actual AWS account ID of the member account, and `<your-bucket-name>` with the name of the S3 bucket in the Data Collection Central account. You can add multiple accounts. Please note 'SupportInsightsLambdaRole-9c8794ee-f9e' is going to be the name of the role created in the member accounts to grant permission to Lambda function.
 
 ## Data Collection Process
 

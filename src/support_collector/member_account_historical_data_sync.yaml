@@ -2,9 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Treiggers a one time sync of support data for member accounts
 
 Parameters:
-  ManagementAccountBucketName:
+  SupportDataManagementBucketName:
     Type: String
-    Description: Name of the S3 bucket in the management account
+    Description: Name of the S3 bucket in the management account that holds the support data
 
 Resources:
   EventBridgeRuleForHistoricalSupportData:
@@ -27,7 +27,7 @@ Resources:
       Targets:
         - Arn: !ImportValue SupportInsightsLambdaFunctionArn
           Id: "SupportInsightsLambdaFunctionHistoricalRule"
-          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
+          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${SupportDataManagementBucketName}", "case": true, "health": true, "ta": true}'
 
   LambdaPermissionForHistoricRunRule:
     Type: AWS::Lambda::Permission

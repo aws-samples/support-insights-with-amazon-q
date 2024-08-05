@@ -81,8 +81,9 @@ cd ..
 
 echo "Current directory: $PWD"
 
-Clean up the temporary directory
+echo "Cleaning  up the temporary directory"
 rm -rf temp_dir
+
 echo "Uploading deployment package to S3..."
 aws s3 cp support-collector-lambda.zip s3://${RESOURCE_BUCKET_NAME}/
 

@@ -1,26 +1,6 @@
-from datetime import timedelta
 import time
-import pytz
 import boto3
 from botocore.exceptions import ClientError
-
-SCHEDULE_DELAY_MINUTES = 1
-
-
-def generate_schedule_expression(start_time):
-    """
-    Generate the ScheduleExpression parameter value for a one-time schedule.
-
-    Args:
-        start_time (datetime): The start time of the script execution.
-
-    Returns:
-        str: The ScheduleExpression parameter value in the format "at(yyyy-mm-ddThh:mm:ss)" in UTC time zone.
-    """
-    scheduled_time = start_time + timedelta(minutes=SCHEDULE_DELAY_MINUTES)
-    scheduled_time_utc = scheduled_time.astimezone(pytz.utc)
-    schedule_expression = f"at({scheduled_time_utc.strftime('%Y-%m-%dT%H:%M:%S')})"
-    return schedule_expression
 
 
 def deploy_stackset_member_accounts(
@@ -33,9 +13,6 @@ def deploy_stackset_member_accounts(
     cf_client = boto3.client("cloudformation")
     with open(template_file, "r", encoding="utf-8") as file:
         template_body = file.read()
-
-    # # Generate the ScheduleExpression for the one-time schedule
-    # schedule_expression = generate_schedule_expression(datetime.now())
 
     try:
         # Create StackSet with Parameters

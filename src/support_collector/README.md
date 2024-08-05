@@ -16,7 +16,6 @@ If you use your local machine to deploy the solution, the following dependencies
 
 ```text
 boto3==1.34.146
-pytz==2024.1
 ```
 
 ## Lambda Function Configuration

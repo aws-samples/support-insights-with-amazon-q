@@ -129,7 +129,7 @@ To find the `<organization-id>`, `<root-id>`, and `<ou-id>` values, refer to the
    - Update the bucket policy for the support data bucket to allow member accounts to upload their support data.
    - Deploy a stackset to run a one time sync to fetch historical support data and load to S3 data bucket.
 
-The bucket policy for the suport data is generated in the file `output_bucket_policy.json` and is similar to the following one:
+The bucket policy for the support data is generated in the file `output_bucket_policy.json` and is similar to the following one:
 
 ```json
 {

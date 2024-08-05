@@ -44,7 +44,7 @@ The data source created above is scheduled to synchronize the data stored in pro
 At this stage, the Amazon Q Application with web experience is created.
 
 1. Login to AWS Account where script was executed and navigate to the Amazon Q console and select your Q application with name that was provided in above Step.
-2. In the Data sources, check the current sync state status. If it states Syncing, you will have to wait until it is completed.
+2. In the Data sources, check the current sync state status. If the status is "Syncing", you will have to wait until it is completed.
 3. Click on deployed URL under Web experience settings to launch the deployed web experience.
 4. Type your query and it should return a response after a few seconds.
 

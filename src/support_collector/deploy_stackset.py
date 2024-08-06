@@ -68,10 +68,10 @@ def wait_for_stackset_creation(stackset_name, operation_id):
             status = operation_response["StackSetOperation"]["Status"]
             if status == "SUCCEEDED":
                 print("StackSet operation completed successfully.")
-                break
+                return True
             if status == "FAILED":
                 print("StackSet operation failed, please check console for details.")
-                break
+                return False
             print(f"StackSet operation status: {status}")
             time.sleep(15)
         except ClientError as e:

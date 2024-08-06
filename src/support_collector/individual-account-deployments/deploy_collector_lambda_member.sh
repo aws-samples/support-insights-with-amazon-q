@@ -21,14 +21,16 @@ echo "Current directory: $PWD"
 rm -rf temp_dir
 echo "Deployment package created: support-collector-lambda.zip"
 
-echo "Enter the bucket name for resource upload: "
-read MEMBER_BUCKET_NAME
+echo "Enter the bucket name to store the Lambda function resource: "
+# read RESOURCE_BUCKET_NAME
+RESOURCE_BUCKET_NAME=support-amazon-q-resource-account03
 
-echo "Enter the name of the S3 bucket in the management account: "
-read MANAGEMENT_BUCKET_NAME
+echo "Enter the name of the S3 bucket to store your support data: "
+# read SUPPORT_BUCKET_NAME
+SUPPORT_BUCKET_NAME=support-amazon-q-data-account03
 
 echo "Uploading deployment package to S3..."
-aws s3 cp support-collector-lambda.zip s3://$MEMBER_BUCKET_NAME/
+aws s3 cp support-collector-lambda.zip s3://$RESOURCE_BUCKET_NAME/
 
 echo "Invoking deploy_lambda_function.py..."
-python3 "$PWD/individual-account-deployments/deploy_lambda_function.py" --bucket-name $MEMBER_BUCKET_NAME --management-account-bucket-name $MANAGEMENT_BUCKET_NAME
+python3 "$PWD/individual-account-deployments/deploy_lambda_function.py" --resource-bucket-name $RESOURCE_BUCKET_NAME --support-data-bucket-name $SUPPORT_BUCKET_NAME

@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Treiggers a one time sync of support data for member accounts
+
+Parameters:
+  SupportDataManagementBucketName:
+    Type: String
+    Description: Name of the S3 bucket in the management account that holds the support data
+
+Resources:
+  EventBridgeRuleForHistoricalSupportData:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Triggers a one time historical sync of support cases when stack creation is complete"
+      EventPattern:
+        source:
+          - aws.cloudformation
+        detail-type:
+          - CloudFormation Stack Status Change
+        resources:
+          - !Ref AWS::StackId
+        detail:
+          stack-id:
+            - !Ref AWS::StackId
+          status-details:
+            status:
+            - CREATE_COMPLETE
+      Targets:
+        - Arn: !ImportValue SupportInsightsLambdaFunctionArn
+          Id: "SupportInsightsLambdaFunctionHistoricalRule"
+          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${SupportDataManagementBucketName}", "case": true, "health": true, "ta": true}'
+
+  LambdaPermissionForHistoricRunRule:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !ImportValue SupportInsightsLambdaFunctionArn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRuleForHistoricalSupportData.Arn
+      Action: lambda:InvokeFunction

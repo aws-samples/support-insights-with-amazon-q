@@ -1,11 +1,15 @@
 import sys
 from datetime import datetime
 import json
+import argparse
 import boto3
+
 import deploy_stackset
 
-STACKSET_PREFIX = "support-insights-stackset"
+STACKSET_PREFIX = "support-insights"
+STACKSET_HISTORICAL_PREFIX = "support-insights-historical-data"
 TEMPLATE_FILE = "member_account_resources.yaml"
+TEMPLATE_HISTORICAL_SYNC_FILE = "member_account_historical_data_sync.yaml"
 LAMBDA_ROLE_NAME = "SupportInsightsLambdaRole-9c8794ee-f9e8"
 OUTPUT_DATA_COLLECTOR_BUCKET_POLICY = "output_bucket_policy.json"
 
@@ -25,10 +29,10 @@ def get_ou_ids():
     return ou_ids
 
 
-def get_all_ou_ids():
+def get_all_ou_ids(ou_ids):
     all_ou_ids = get_ou_ids()
 
-    user_input_ou_ids = sys.argv[3].split(",")
+    user_input_ou_ids = ou_ids.split(",")
 
     valid_ou_ids = []
     for ou_id in user_input_ou_ids:
@@ -40,28 +44,21 @@ def get_all_ou_ids():
     return valid_ou_ids
 
 
-def deploy_stackset_module(
-    stackset_name,
-    region,
-    management_account_bucket_name,
-    resource_management_bucket_name,
-    valid_ou_ids,
-):
-    deploy_stackset.deploy_stackset_member_accounts(
-        stackset_name,
-        TEMPLATE_FILE,
-        region,
-        management_account_bucket_name,
-        resource_management_bucket_name,
-        LAMBDA_ROLE_NAME,
-        valid_ou_ids,
-    )
+def list_accounts_for_parent(parent_id):
+    accounts = []
+    paginator = org_client.get_paginator("list_accounts_for_parent")
+    page_iterator = paginator.paginate(ParentId=parent_id)
+
+    for page in page_iterator:
+        accounts.extend(page["Accounts"])
+
+    return accounts
 
 
 def generate_bucket_policy(management_account_bucket_name, valid_ou_ids):
     accounts_in_ous = []
     for ou_id in valid_ou_ids:
-        accounts = org_client.list_accounts_for_parent(ParentId=ou_id)["Accounts"]
+        accounts = list_accounts_for_parent(parent_id=ou_id)
         accounts_in_ous.extend(accounts)
 
     principal_arns = []
@@ -99,33 +96,155 @@ def generate_bucket_policy(management_account_bucket_name, valid_ou_ids):
     print(
         f"Bucket policy JSON saved to {OUTPUT_DATA_COLLECTOR_BUCKET_POLICY} for bucket {management_account_bucket_name}"
     )
+    return policy
 
 
-def main(bucket_name, resource_bucket_name):
+def update_bucket_policy(bucket_name, policy):
+    s3_client = boto3.client("s3")
+    s3_client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+
+
+def deploy_support_collector_resources(
+    data_bucket_name, resource_bucket_name, region, valid_ou_ids, stackset_name
+):
+
+    stack_params = [
+        {"ParameterKey": "LambdaRoleName", "ParameterValue": LAMBDA_ROLE_NAME},
+        {
+            "ParameterKey": "SupportDataManagementBucketName",
+            "ParameterValue": data_bucket_name,
+        },
+        {
+            "ParameterKey": "ResourceManagementBucketName",
+            "ParameterValue": resource_bucket_name,
+        },
+    ]
+    stackset_name_result, operation_id = (
+        deploy_stackset.deploy_stackset_member_accounts(
+            stackset_name,
+            TEMPLATE_FILE,
+            region,
+            stack_params,
+            valid_ou_ids,
+        )
+    )
+    return stackset_name_result, operation_id
+
+
+def deploy_support_collector_historic_sync_rule(
+    data_bucket_name, region, valid_ou_ids, stackset_name
+):
+    stack_params = [
+        {
+            "ParameterKey": "SupportDataManagementBucketName",
+            "ParameterValue": data_bucket_name,
+        }
+    ]
+
+    # after all stack are created, the policy on the bucket is set so we can deploy a stackset to run one time historical sync
+    stackset_name_result, operation_id = (
+        deploy_stackset.deploy_stackset_member_accounts(
+            stackset_name,
+            TEMPLATE_HISTORICAL_SYNC_FILE,
+            region,
+            stack_params,
+            valid_ou_ids,
+        )
+    )
+    return stackset_name_result, operation_id
+
+
+def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_policy):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     stackset_name = f"{STACKSET_PREFIX}-{timestamp}"
+
     region = boto3.Session().region_name
-    valid_ou_ids = get_all_ou_ids()
+    valid_ou_ids = get_all_ou_ids(ou_ids)
     if not valid_ou_ids:
         print("No valid OU IDs provided. Exiting...")
         return
 
     print("Creating CloudFormation stack for member account(s)...")
-    deploy_stackset_module(
-        stackset_name=stackset_name,
+    stackset_name_result, operation_id = deploy_support_collector_resources(
+        data_bucket_name=data_bucket_name,
+        resource_bucket_name=resource_bucket_name,
         region=region,
-        management_account_bucket_name=bucket_name,
-        resource_management_bucket_name=resource_bucket_name,
         valid_ou_ids=valid_ou_ids,
+        stackset_name=stackset_name,
     )
 
-    print("Please check the status in CloudFormation StackSets.")
-    generate_bucket_policy(bucket_name, valid_ou_ids)
+    print("Generating policy for the data bucket...")
+    policy = generate_bucket_policy(data_bucket_name, valid_ou_ids)
+
+    if overwrite_data_bucket_policy:
+        print(
+            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete to update data bucket policy... Please do not exit this shell."
+        )
+        if deploy_stackset.wait_for_stackset_creation(
+            stackset_name_result, operation_id
+        ):
+            print("StackSet completed. Updating data bucket policy...")
+            update_bucket_policy(data_bucket_name, policy)
+            print("Data bucket policy updated.")
+    else:
+        print(
+            "Not waiting for the CloudFormation StackSets to complete to update data bucket policy..."
+        )
+
+    print(
+        "Deploying a stack set with a one time rule to trigger a sync of the historical support data..."
+    )
+    stackset_name = f"{STACKSET_HISTORICAL_PREFIX}-{timestamp}"
+    stackset_name_result, operation_id = deploy_support_collector_historic_sync_rule(
+        data_bucket_name=data_bucket_name,
+        region=region,
+        valid_ou_ids=valid_ou_ids,
+        stackset_name=stackset_name,
+    )
+
+    print(
+        f"Now waiting for the CloudFormation StackSets {stackset_name_result} to verify success... Please do not exit this shell."
+    )
+    if deploy_stackset.wait_for_stackset_creation(stackset_name_result, operation_id):
+        print("StackSet completed! All done.")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
+    parser = argparse.ArgumentParser()
+    # deploy_infrastructure.py "${DATA_BUCKET_NAME}" "${RESOURCE_BUCKET_NAME}" "${OU_IDS}" "${UPDATE_DATA_BUCKET_POLICY}"
+
+    parser.add_argument(
+        "--data-bucket", dest="data_bucket", help="Data bucket name", required=True
+    )
+    parser.add_argument(
+        "--resource-bucket",
+        dest="resource_bucket",
+        help="Lambda resource bucket name",
+        required=True,
+    )
+    parser.add_argument(
+        "--ou-ids",
+        dest="ou_ids",
+        help="Organizational Units to deploy to (ie: ou-xxxxxxxxxx1,ou-xxxxxxxxxx2)",
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "--overwrite-data-bucket-policy",
+        dest="overwrite_data_bucket_policy",
+        help="Overwrite the data bucket policy",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+    )
+    args = parser.parse_args()
+
+    if len(sys.argv) < 5:
         print("Error: Bucket names or OU IDs not provided.")
         sys.exit(1)
 
-    main(sys.argv[1], sys.argv[2])
+    main(
+        data_bucket_name=args.data_bucket,
+        resource_bucket_name=args.resource_bucket,
+        ou_ids=args.ou_ids,
+        overwrite_data_bucket_policy=args.overwrite_data_bucket_policy,
+    )

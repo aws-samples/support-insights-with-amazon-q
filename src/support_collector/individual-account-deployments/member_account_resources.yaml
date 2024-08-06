@@ -5,10 +5,10 @@ Parameters:
   LambdaRoleName:
     Type: String
     Description: Name of the IAM role for the Lambda function
-  ManagementAccountBucketName:
+  SupportDataBucketName:
     Type: String
-    Description: Name of the S3 bucket in the management account
-  MemberBucketName:
+    Description: Name of the S3 bucket containing support data
+  ResourceBucketName:
     Type: String
     Description: Name of the S3 bucket containing the Lambda package in the member account
 
@@ -49,7 +49,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub 'arn:aws:s3:::${ManagementAccountBucketName}/*'
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${SupportDataBucketName}/*'
 
   SupportInsightsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -58,7 +58,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt SupportInsightsLambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref MemberBucketName
+        S3Bucket: !Ref ResourceBucketName
         S3Key: support-collector-lambda.zip
       Runtime: python3.8
       Timeout: 900
@@ -66,11 +66,24 @@ Resources:
   EventBridgeRuleForHistoricalSupportData:
     Type: AWS::Events::Rule
     Properties:
-      ScheduleExpression: "rate(15 minutes)"
+      Description: "Triggers a one time historical sync of support cases when stack creation is complete"
+      EventPattern:
+        source:
+          - aws.cloudformation
+        detail-type:
+          - CloudFormation Stack Status Change
+        resources:
+          - !Ref AWS::StackId
+        detail:
+          stack-id:
+            - !Ref AWS::StackId
+          status-details:
+            status:
+            - CREATE_COMPLETE
       Targets:
         - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-          Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
+          Id: "SupportInsightsLambdaFunction"
+          Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${SupportDataBucketName}", "case": true, "health": true, "ta": true}'
 
   EventBridgeRuleForDailyRun:
     Type: AWS::Scheduler::Schedule
@@ -81,7 +94,7 @@ Resources:
         Mode: "OFF"
       Target:
         Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
+        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${SupportDataBucketName}", "case": true, "health": true, "ta": true}'
         RoleArn: !GetAtt SchedulerRole.Arn
 
   SchedulerRole:
@@ -109,6 +122,14 @@ Resources:
       FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt EventBridgeRuleForHistoricalSupportData.Arn
+      Action: lambda:InvokeFunction
+
+  LambdaPermissionForDailyRunRule:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRuleForDailyRun.Arn
       Action: lambda:InvokeFunction
 
 Outputs:

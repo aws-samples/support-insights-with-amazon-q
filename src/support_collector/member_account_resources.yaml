@@ -5,15 +5,13 @@ Parameters:
   LambdaRoleName:
     Type: String
     Description: Name of the IAM role for the Lambda function
-  ManagementAccountBucketName:
+    Default: SupportInsightsLambdaRole-9c8794ee-f9e8
+  SupportDataManagementBucketName:
     Type: String
-    Description: Name of the S3 bucket in the management account
+    Description: Name of the S3 bucket in the management account to store support data
   ResourceManagementBucketName:
     Type: String
     Description: Name of the S3 bucket containing the Lambda package in the management account
-  ScheduleExpression:
-    Type: String
-    Description: The schedule expression for the one-time EventBridge rule
 
 Resources:
   SupportInsightsLambdaExecutionRole:
@@ -52,7 +50,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub 'arn:aws:s3:::${ManagementAccountBucketName}/*'
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${SupportDataManagementBucketName}/*'
 
   SupportInsightsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -63,20 +61,8 @@ Resources:
       Code:
         S3Bucket: !Ref ResourceManagementBucketName
         S3Key: support-collector-lambda.zip
-      Runtime: python3.8
+      Runtime: python3.11
       Timeout: 900
-
-  EventBridgeRuleForHistoricalSupportData:
-    Type: AWS::Scheduler::Schedule
-    Properties:
-      Name: EventBridgeRuleForHistoricalSupportData
-      ScheduleExpression: !Ref ScheduleExpression
-      FlexibleTimeWindow:
-        Mode: "OFF"
-      Target:
-        Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-        Input: !Sub '{"past_no_of_days": 180, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
-        RoleArn: !GetAtt SchedulerRole.Arn
 
   EventBridgeRuleForDailyRun:
     Type: AWS::Events::Rule
@@ -85,7 +71,7 @@ Resources:
       Targets:
         - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
           Id: LambdaFunctionTarget
-          Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${ManagementAccountBucketName}", "case": true, "health": true, "ta": true}'
+          Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${SupportDataManagementBucketName}", "case": true, "health": true, "ta": true}'
 
   LambdaPermissionForDailyRunRule:
     Type: AWS::Lambda::Permission
@@ -118,3 +104,10 @@ Outputs:
   LambdaExecutionRoleArn:
     Description: ARN of the IAM role for the Lambda function
     Value: !GetAtt SupportInsightsLambdaExecutionRole.Arn
+    Export:
+      Name:  SupportInsightsLambdaExecutionRole
+  SupportInsightsLambdaFunction:
+    Description: Lambda function ARN
+    Value: !GetAtt SupportInsightsLambdaFunction.Arn
+    Export:
+      Name: SupportInsightsLambdaFunctionArn

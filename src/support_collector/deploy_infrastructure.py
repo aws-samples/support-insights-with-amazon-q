@@ -105,7 +105,7 @@ def update_bucket_policy(bucket_name, policy):
 
 
 def deploy_support_collector_resources(
-    data_bucket_name, resource_bucket_name, region, valid_ou_ids, stackset_name
+    data_bucket_name, region, valid_ou_ids, stackset_name
 ):
 
     stack_params = [
@@ -113,11 +113,7 @@ def deploy_support_collector_resources(
         {
             "ParameterKey": "SupportDataManagementBucketName",
             "ParameterValue": data_bucket_name,
-        },
-        {
-            "ParameterKey": "ResourceManagementBucketName",
-            "ParameterValue": resource_bucket_name,
-        },
+        }
     ]
     stackset_name_result, operation_id = (
         deploy_stackset.deploy_stackset_member_accounts(
@@ -154,7 +150,7 @@ def deploy_support_collector_historic_sync_rule(
     return stackset_name_result, operation_id
 
 
-def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_policy):
+def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     stackset_name = f"{STACKSET_PREFIX}-{timestamp}"
 
@@ -167,7 +163,6 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
     print("Creating CloudFormation stack for member account(s)...")
     stackset_name_result, operation_id = deploy_support_collector_resources(
         data_bucket_name=data_bucket_name,
-        resource_bucket_name=resource_bucket_name,
         region=region,
         valid_ou_ids=valid_ou_ids,
         stackset_name=stackset_name,
@@ -218,16 +213,9 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # deploy_infrastructure.py "${DATA_BUCKET_NAME}" "${RESOURCE_BUCKET_NAME}" "${OU_IDS}" "${UPDATE_DATA_BUCKET_POLICY}"
 
     parser.add_argument(
         "--data-bucket", dest="data_bucket", help="Data bucket name", required=True
-    )
-    parser.add_argument(
-        "--resource-bucket",
-        dest="resource_bucket",
-        help="Lambda resource bucket name",
-        required=True,
     )
     parser.add_argument(
         "--ou-ids",
@@ -251,7 +239,6 @@ if __name__ == "__main__":
 
     main(
         data_bucket_name=args.data_bucket,
-        resource_bucket_name=args.resource_bucket,
         ou_ids=args.ou_ids,
         overwrite_data_bucket_policy=args.overwrite_data_bucket_policy,
     )

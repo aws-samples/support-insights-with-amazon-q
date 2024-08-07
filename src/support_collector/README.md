@@ -155,11 +155,10 @@ Use this option if you do not wish to use AWS Organizations and want to target a
 
 5. The script will prompt you to provide the input bucket name to store the support data. It is preferred to store all the data in the same account though you can select a bucket in another account and update its policy (see next section).
 6. The script will perform the following tasks:
-   - Install dependencies and create a deployment package for the AWS Lambda function.
    - Create an IAM role `SupportInsightsLambdaRole-9c8794ee-f9e8` with the necessary permissions to access the AWS Support and Health services.
    - Deploy the Lambda function with the created IAM role, using a CloudFormation stack.
    - Set up an Amazon EventBridge scheduler to periodically trigger the AWS Lambda function.
-   - Run a one time sync to fetch historical support data and load to S3 data bucket.
+   - Set up an Amazon EventBridge scheduler to run a one time sync to fetch historical support data and load to S3 data bucket.
 
 #### Bucket Policy
 

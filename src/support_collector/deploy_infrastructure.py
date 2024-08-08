@@ -99,6 +99,17 @@ def generate_bucket_policy(management_account_bucket_name, valid_ou_ids):
     return policy
 
 
+def s3_bucket_exists(bucket_name):
+    s3_client = boto3.client("s3")
+    try:
+        s3_client.head_bucket(Bucket=bucket_name)
+        return True
+    except s3_client.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            return False
+        raise e
+
+
 def update_bucket_policy(bucket_name, policy):
     s3_client = boto3.client("s3")
     s3_client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
@@ -113,7 +124,7 @@ def deploy_support_collector_resources(
         {
             "ParameterKey": "SupportDataManagementBucketName",
             "ParameterValue": data_bucket_name,
-        }
+        },
     ]
     stackset_name_result, operation_id = (
         deploy_stackset.deploy_stackset_member_accounts(
@@ -151,6 +162,10 @@ def deploy_support_collector_historic_sync_rule(
 
 
 def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
+    if not s3_bucket_exists(bucket_name=data_bucket_name):
+        print(f"Bucket {data_bucket_name} does not exist. Exiting...")
+        return
+
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     stackset_name = f"{STACKSET_PREFIX}-{timestamp}"
 
@@ -172,8 +187,8 @@ def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
         f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete... Please do not exit this shell."
     )
     deployment_succeeded = deploy_stackset.wait_for_stackset_creation(
-            stackset_name_result, operation_id
-        )
+        stackset_name_result, operation_id
+    )
 
     if deployment_succeeded:
         print("Generating policy for the data bucket...")
@@ -184,9 +199,7 @@ def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
             update_bucket_policy(data_bucket_name, policy)
             print("Data bucket policy updated.")
         else:
-            print(
-                "Not updating the data bucket policy..."
-            )
+            print("Not updating the data bucket policy...")
 
         print(
             "Deploying a stack set with a one time rule to trigger a sync of the historical support data..."
@@ -231,10 +244,6 @@ if __name__ == "__main__":
         required=False,
     )
     args = parser.parse_args()
-
-    if len(sys.argv) < 5:
-        print("Error: Bucket names or OU IDs not provided.")
-        sys.exit(1)
 
     main(
         data_bucket_name=args.data_bucket,

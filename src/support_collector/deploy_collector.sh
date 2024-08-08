@@ -18,11 +18,5 @@ else
 fi
 echo ""
 
-# Check if the bucket exist
-if ! aws s3 ls "s3://${DATA_BUCKET_NAME}" 2>/dev/null; then
-    echo "Error: The bucket '${DATA_BUCKET_NAME}' does not exist or you do not have permission to access it."
-    exit 1
-fi
-
 echo "Invoking deploy_infrastructure.py..."
 python3 deploy_infrastructure.py --data-bucket "${DATA_BUCKET_NAME}" --ou-ids "${OU_IDS}" "${OVERWRITE_DATA_BUCKET_POLICY}"

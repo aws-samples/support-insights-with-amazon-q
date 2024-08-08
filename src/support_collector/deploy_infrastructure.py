@@ -168,27 +168,26 @@ def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
         stackset_name=stackset_name,
     )
 
-    print("Generating policy for the data bucket...")
-    policy = generate_bucket_policy(data_bucket_name, valid_ou_ids)
-
-    deployment_succeeded = True
-    if overwrite_data_bucket_policy:
-        print(
-            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete to update data bucket policy... Please do not exit this shell."
-        )
-        deployment_succeeded = deploy_stackset.wait_for_stackset_creation(
+    print(
+        f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete... Please do not exit this shell."
+    )
+    deployment_succeeded = deploy_stackset.wait_for_stackset_creation(
             stackset_name_result, operation_id
-        )
-        if deployment_succeeded:
-            print("StackSet completed. Updating data bucket policy...")
-            update_bucket_policy(data_bucket_name, policy)
-            print("Data bucket policy updated.")
-    else:
-        print(
-            "Not waiting for the CloudFormation StackSets to complete to update data bucket policy..."
         )
 
     if deployment_succeeded:
+        print("Generating policy for the data bucket...")
+        policy = generate_bucket_policy(data_bucket_name, valid_ou_ids)
+
+        if overwrite_data_bucket_policy:
+            print("StackSet completed. Updating data bucket policy...")
+            update_bucket_policy(data_bucket_name, policy)
+            print("Data bucket policy updated.")
+        else:
+            print(
+                "Not updating the data bucket policy..."
+            )
+
         print(
             "Deploying a stack set with a one time rule to trigger a sync of the historical support data..."
         )
@@ -203,7 +202,7 @@ def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
         )
 
         print(
-            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to verify success... Please do not exit this shell."
+            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete... Please do not exit this shell."
         )
         if deploy_stackset.wait_for_stackset_creation(
             stackset_name_result, operation_id

@@ -56,41 +56,7 @@ You have two options for deploying the necessary resources:
 
 Use this option if you have AWS Organizations set up. You can leverage AWS CloudFormation StackSets across multiple linked or member accounts with a single operation. AWS Organizations integrates with CloudFormation, enabling centralized management as you scale across multiple accounts. It will setup the Lambda function and EventBridge in all the AWS accounts that belong to the AWS Organization units provided by the user.
 
-#### Resource Bucket Policy
-
-Before running the deployment scripts, ensure that the bucket policy of the resource S3 bucket is updated to grant access to the organizational units (OUs) where the member accounts reside. Replace the placeholders in the following bucket policy with your specific values:
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AllowAccessToQInsightsCollectorBucket",
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": [
-                "s3:GetObject",
-                "s3:ListBucket",
-                "s3:PutObject"
-            ],
-            "Resource": [
-                "arn:aws:s3:::<your-resource-bucket-name>",
-                "arn:aws:s3:::<your-resource-bucket-name>/*"
-            ],
-            "Condition": {
-                "ForAnyValue:StringLike": {
-                    "aws:PrincipalOrgPaths": [
-                        "<organization-id>/<root-id>/<ou-id1>/*",
-                        "<organization-id>/<root-id>/<ou-id2>/*"
-                    ]
-                }
-            }
-        }
-    ]
-}
-```
-
-To find the `<organization-id>`, `<root-id>`, and `<ou-id>` values, refer to the AWS Organizations User Guide: [Viewing Details of an Organization](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_details.html#orgs_view_ou). Note that the organization ID starts with the prefix o-, the root ID starts with r-, and the OU ID starts with ou- (e.g., o-xxxxx/r-xxxxx/ou-xxxxx).
+To deploy this solution, you will need to know the `<organization-id>`, `<root-id>`, and `<ou-id>` values for your environment. Refer to the AWS Organizations user guide: [viewing details of an Organization](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_details.html#orgs_view_ou). Note that the organization ID starts with the prefix o-, the root ID starts with r-, and the OU ID starts with ou- (e.g., o-xxxxx/r-xxxxx/ou-xxxxx).
 
 #### Deployment Steps using AWS Organization
 
@@ -116,13 +82,11 @@ To find the `<organization-id>`, `<root-id>`, and `<ou-id>` values, refer to the
 
     The script will prompt you for the following inputs:
 
-    - Enter the OU IDs separated by commas (e.g., `o-xxxxxxxxxx, o-xxxxxxxxxx`): this will deploy a stack in each of the selected OU
+    - Enter the OU IDs separated by commas (e.g., `ou-xxxxxxxxxx, ou-xxxxxxxxxx`): this will deploy a stack in each of the selected OU
     - Enter the data collection S3 bucket name (here in the management account)
-    - Enter the resource S3 bucket name that will contain the Lambda package (here in the management account)
 
 5. The script will perform the following tasks:
 
-   - Install dependencies and create a deployment package for the AWS Lambda functions.
    - Create a CloudFormation StackSet to deploy necessary resources (IAM roles, Lambda functions, etc.) in member accounts.
    - Set up an Amazon EventBridge scheduler to periodically trigger the AWS Lambda function.
    - Generate a JSON file for the bucket policy that you can use to update the Data Collector S3 Bucket (in file `output_bucket_policy.json`)
@@ -189,14 +153,12 @@ Use this option if you do not wish to use AWS Organizations and want to target a
     ./deploy_collector_lambda_member.sh
     ```
 
-5. The script will prompt you to provide the input bucket name to store the deployment resources and support data. It is preferred to store all the data in the same account though you can select a bucket in another account and update its policy (see next section).
+5. The script will prompt you to provide the input bucket name to store the support data. It is preferred to store all the data in the same account though you can select a bucket in another account and update its policy (see next section).
 6. The script will perform the following tasks:
-   - Install dependencies and create a deployment package for the AWS Lambda function.
-   - Upload the deployment package to the Resource S3 bucket in the account.
    - Create an IAM role `SupportInsightsLambdaRole-9c8794ee-f9e8` with the necessary permissions to access the AWS Support and Health services.
    - Deploy the Lambda function with the created IAM role, using a CloudFormation stack.
    - Set up an Amazon EventBridge scheduler to periodically trigger the AWS Lambda function.
-   - Run a one time sync to fetch historical support data and load to S3 data bucket.
+   - Set up an Amazon EventBridge scheduler to run a one time sync to fetch historical support data and load to S3 data bucket.
 
 #### Bucket Policy
 
@@ -277,21 +239,27 @@ Note: Make sure to replace `<DATA-COLLECTION-BUCKET>` with the actual name of yo
 
 To clean up the deployed resources, follow these steps:
 
-1. Delete the CloudFormation StackSet (for option 1):
-   - Navigate to the CloudFormation console in the Central account.
-   - Select the StackSet named `support-insights-stackset-*`.
+1. Delete the CloudFormation StackSets (for option 1) in the following order:
+   - Navigate to the CloudFormation console in the management account.
+   - Select the StackSet named `support-insights-historical-data*` and delete the stackset instances.
+   - Delete the StackSet.
+   - Select the StackSet named `support-insights-stackset*` and delete the stackset instances.
    - Delete the StackSet.
 
    Alternatively, you can use the CLI commands as below:
    - Delete the Stack instances (replace the placeholders):
 
    ```bash
-   aws cloudformation delete-stack-instances --stack-set-name support-insights-stackset-<time-stamp> --deployment-targets OrganizationalUnitIds=<ou ids> --regions us-west-2 --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1 --no-retain-stacks
-   ```
+   # Delete stack set instances:
+   aws cloudformation delete-stack-instances --stack-set-name support-insights-historical-data-<time-stamp> --deployment-targets OrganizationalUnitIds=<ou ids> --regions us-west-2 --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1 --no-retain-stacks
+   
+   # Delete the StackSet:
+   aws cloudformation delete-stack-set --stack-set-name support-insights-historical-data-<time-stamp>
 
-   - Delete the StackSet:
-
-   ```bash
+   # Delete stack set instances:
+   aws cloudformation delete-stack-instances --stack-set-name support-insights-<time-stamp> --deployment-targets OrganizationalUnitIds=<ou ids> --regions us-west-2 --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1 --no-retain-stacks
+   
+   # Delete the StackSet:
    aws cloudformation delete-stack-set --stack-set-name support-insights-stackset-<time-stamp>
    ```
 

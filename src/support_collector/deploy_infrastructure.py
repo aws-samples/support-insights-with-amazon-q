@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime
 import json
 import argparse
@@ -99,13 +98,24 @@ def generate_bucket_policy(management_account_bucket_name, valid_ou_ids):
     return policy
 
 
+def s3_bucket_exists(bucket_name):
+    s3_client = boto3.client("s3")
+    try:
+        s3_client.head_bucket(Bucket=bucket_name)
+        return True
+    except s3_client.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            return False
+        raise e
+
+
 def update_bucket_policy(bucket_name, policy):
     s3_client = boto3.client("s3")
     s3_client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
 
 
 def deploy_support_collector_resources(
-    data_bucket_name, resource_bucket_name, region, valid_ou_ids, stackset_name
+    data_bucket_name, region, valid_ou_ids, stackset_name
 ):
 
     stack_params = [
@@ -113,10 +123,6 @@ def deploy_support_collector_resources(
         {
             "ParameterKey": "SupportDataManagementBucketName",
             "ParameterValue": data_bucket_name,
-        },
-        {
-            "ParameterKey": "ResourceManagementBucketName",
-            "ParameterValue": resource_bucket_name,
         },
     ]
     stackset_name_result, operation_id = (
@@ -154,7 +160,11 @@ def deploy_support_collector_historic_sync_rule(
     return stackset_name_result, operation_id
 
 
-def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_policy):
+def main(data_bucket_name, ou_ids, overwrite_data_bucket_policy):
+    if not s3_bucket_exists(bucket_name=data_bucket_name):
+        print(f"Bucket {data_bucket_name} does not exist. Exiting...")
+        return
+
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     stackset_name = f"{STACKSET_PREFIX}-{timestamp}"
 
@@ -167,33 +177,29 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
     print("Creating CloudFormation stack for member account(s)...")
     stackset_name_result, operation_id = deploy_support_collector_resources(
         data_bucket_name=data_bucket_name,
-        resource_bucket_name=resource_bucket_name,
         region=region,
         valid_ou_ids=valid_ou_ids,
         stackset_name=stackset_name,
     )
 
-    print("Generating policy for the data bucket...")
-    policy = generate_bucket_policy(data_bucket_name, valid_ou_ids)
+    print(
+        f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete... Please do not exit this shell."
+    )
+    deployment_succeeded = deploy_stackset.wait_for_stackset_creation(
+        stackset_name_result, operation_id
+    )
 
-    deployment_succeeded = True
-    if overwrite_data_bucket_policy:
-        print(
-            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete to update data bucket policy... Please do not exit this shell."
-        )
-        deployment_succeeded = deploy_stackset.wait_for_stackset_creation(
-            stackset_name_result, operation_id
-        )
-        if deployment_succeeded:
+    if deployment_succeeded:
+        print("Generating policy for the data bucket...")
+        policy = generate_bucket_policy(data_bucket_name, valid_ou_ids)
+
+        if overwrite_data_bucket_policy:
             print("StackSet completed. Updating data bucket policy...")
             update_bucket_policy(data_bucket_name, policy)
             print("Data bucket policy updated.")
-    else:
-        print(
-            "Not waiting for the CloudFormation StackSets to complete to update data bucket policy..."
-        )
+        else:
+            print("Not updating the data bucket policy...")
 
-    if deployment_succeeded:
         print(
             "Deploying a stack set with a one time rule to trigger a sync of the historical support data..."
         )
@@ -208,7 +214,7 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
         )
 
         print(
-            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to verify success... Please do not exit this shell."
+            f"Now waiting for the CloudFormation StackSets {stackset_name_result} to complete... Please do not exit this shell."
         )
         if deploy_stackset.wait_for_stackset_creation(
             stackset_name_result, operation_id
@@ -218,16 +224,9 @@ def main(data_bucket_name, resource_bucket_name, ou_ids, overwrite_data_bucket_p
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # deploy_infrastructure.py "${DATA_BUCKET_NAME}" "${RESOURCE_BUCKET_NAME}" "${OU_IDS}" "${UPDATE_DATA_BUCKET_POLICY}"
 
     parser.add_argument(
         "--data-bucket", dest="data_bucket", help="Data bucket name", required=True
-    )
-    parser.add_argument(
-        "--resource-bucket",
-        dest="resource_bucket",
-        help="Lambda resource bucket name",
-        required=True,
     )
     parser.add_argument(
         "--ou-ids",
@@ -245,13 +244,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if len(sys.argv) < 5:
-        print("Error: Bucket names or OU IDs not provided.")
-        sys.exit(1)
-
     main(
         data_bucket_name=args.data_bucket,
-        resource_bucket_name=args.resource_bucket,
         ou_ids=args.ou_ids,
         overwrite_data_bucket_policy=args.overwrite_data_bucket_policy,
     )

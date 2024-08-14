@@ -8,9 +8,6 @@ Parameters:
   SupportDataBucketName:
     Type: String
     Description: Name of the S3 bucket containing support data
-  ResourceBucketName:
-    Type: String
-    Description: Name of the S3 bucket containing the Lambda package in the member account
 
 Resources:
   SupportInsightsLambdaExecutionRole:
@@ -58,8 +55,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt SupportInsightsLambdaExecutionRole.Arn
       Code:
-        S3Bucket: !Ref ResourceBucketName
-        S3Key: support-collector-lambda.zip
+        S3Bucket: ws-assets-prod-iad-r-iad-ed304a55c2ca1aee
+        S3Key: 741340b0-0c84-4a80-8ccf-e351dcc826c0/support-collector-lambda.zip
       Runtime: python3.8
       Timeout: 900
 

@@ -1,7 +1,7 @@
 import os
 import boto3
 
-def deploy_lambda_function(resource_bucket_name, support_data_bucket_name):
+def deploy_lambda_function(support_data_bucket_name):
     # Create CloudFormation client
     cf_client = boto3.client('cloudformation')
 
@@ -29,10 +29,6 @@ def deploy_lambda_function(resource_bucket_name, support_data_bucket_name):
         {
             'ParameterKey': 'SupportDataBucketName',
             'ParameterValue': support_data_bucket_name
-        },
-        {
-            'ParameterKey': 'ResourceBucketName',
-            'ParameterValue': resource_bucket_name
         }
     ]
 
@@ -54,8 +50,7 @@ def deploy_lambda_function(resource_bucket_name, support_data_bucket_name):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--resource-bucket-name', required=True, help='Name of the S3 bucket containing the Lambda package')
     parser.add_argument('--support-data-bucket-name', required=True, help='Name of the S3 bucket containing support data')
     args = parser.parse_args()
 
-    deploy_lambda_function(args.resource_bucket_name, args.support_data_bucket_name)
+    deploy_lambda_function(args.support_data_bucket_name)

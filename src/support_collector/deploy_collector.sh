@@ -12,6 +12,7 @@ printf "\n\n"
 printf "Do you want the script to overwrite the data collection bucket policy on your behalf?\nThis requires PutBucketPolicy permission and it will OVERWRITE the current policy.\nIf the policy is not set, member accounts may not be able to store their data properly. (Y/N, default: Y): "
 read OVERWRITE_DATA_BUCKET_POLICY_ANSWER
 if [ "$OVERWRITE_DATA_BUCKET_POLICY_ANSWER" != "${OVERWRITE_DATA_BUCKET_POLICY_ANSWER#[Yy]}" ] ;then
+if [ "$OVERWRITE_DATA_BUCKET_POLICY_ANSWER" != "${OVERWRITE_DATA_BUCKET_POLICY_ANSWER#[Yy]}" ] ;then
     OVERWRITE_DATA_BUCKET_POLICY=--overwrite-data-bucket-policy
 else
     OVERWRITE_DATA_BUCKET_POLICY="--no-overwrite-data-bucket-policy"

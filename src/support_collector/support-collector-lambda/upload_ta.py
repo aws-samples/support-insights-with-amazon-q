@@ -19,26 +19,24 @@ checks_info_dict = {
 def save_to_s3(recommendations_by_account, bucket_name):
     region = session.region_name
     s3 = session.client("s3", region_name=region)
-    current_date = datetime.datetime.utcnow().strftime(
-        "%Y-%m-%d"
-    )  # Using UTC date to standardize the timestamps across regions
 
     print(f"The TA recommendations are being uploaded to S3 bucket {bucket_name}...")
     for account_id, recommendations in recommendations_by_account.items():
         for recommendation in recommendations:
             status = recommendation["recommendation"]["status"].lower()
+            # Filter for warning or error status
             if status in [
                 "warning",
                 "error",
                 "yellow",
                 "red",
-            ]:  # Filter for warning or error status
-                check_id = recommendation["recommendation"][
-                    "checkId"
-                ]  # Extract the checkId from the recommendation
+            ]:
+                # Extract the checkId from the recommendation
+                check_id = recommendation["recommendation"]["checkId"]
+                # Get the description from the checks_info_dict
                 description = checks_info_dict.get(check_id, {}).get(
                     "description", "No description provided"
-                )  # Get the description from the checks_info_dict
+                )
                 # Update the recommendation with name and modified description
                 recommendation["recommendation"][
                     "description"
@@ -46,7 +44,8 @@ def save_to_s3(recommendations_by_account, bucket_name):
                 recommendation_json = json.dumps(
                     recommendation, ensure_ascii=False
                 ).encode("utf-8")
-                file_key = f"ta/{account_id}/{current_date}/{check_id}.json"  # Construct the file key using account_id, date, and checkId
+                # Construct the file key using account_id, date, and checkId
+                file_key = f"ta/{account_id}/{check_id}.json"
                 s3.put_object(
                     Bucket=bucket_name, Key=file_key, Body=recommendation_json
                 )

@@ -5,25 +5,12 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
+from utils import convert_time_to_month_year
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 session = boto3.Session()
-
-
-def convert_time_to_month_year(time_created):
-    # Parse the time_created string into a datetime object
-    dt = datetime.strptime(time_created, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-    # Extract the year and month components
-    year = dt.year
-    month = dt.month
-
-    # Format the year and month as "YYYY/MM"
-    month_year = f"{year}/{month:02d}"
-
-    return month_year
-
 
 def save_to_s3(cases_by_account, bucket_name):
     region = session.region_name
@@ -38,7 +25,7 @@ def save_to_s3(cases_by_account, bucket_name):
             # Extracting creation time for partitioning in S3
             time_created = case["case"]["timeCreated"]
             # Convert the time_created in the format "2024-07-23T15:49:29.995Z" to "2024/07"
-            creation_date = convert_time_to_month_year(time_created)
+            creation_date = convert_time_to_month_year(iso_datetime=time_created)
 
             # Serialize case data to JSON with UTF-8 encoding
             case_json = json.dumps(case, ensure_ascii=False).encode("utf-8")

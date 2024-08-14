@@ -4,6 +4,7 @@ from collections import defaultdict
 import logging
 import boto3
 
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
@@ -20,22 +21,26 @@ class DatetimeEncoder(json.JSONEncoder):
 def save_to_s3(events_by_account, bucket_name):
     region = session.region_name
     s3 = session.client("s3", region_name=region)
-    current_date = datetime.datetime.utcnow().strftime(
-        "%Y-%m-%d"
-    )  # Format the date as YYYY-MM-DD
 
     print(f"The Health events are being uploaded to S3 bucket {bucket_name}...")
     for account_id, account_events in events_by_account.items():
         for event_dict in account_events:
             event = event_dict["event"]
-            arn = (
-                event["arn"].split(":")[-1].replace("/", "_")
-            )  # Clean ARN for use as filename
+
+            # Clean ARN for use as filename
+            arn = event["arn"].split(":")[-1].replace("/", "_")
             event_json = json.dumps(
                 event, cls=DatetimeEncoder, ensure_ascii=False
             ).encode("utf-8")
-            file_key = f"health/{account_id}/{current_date}/{arn}.json"  # Construct the file key using account_id, date, and arn
+
+            # Extracting start time for partitioning in S3
+            dt = event["startTime"]
+            start_date = f"{dt.year}/{dt.month}"
+
+            # Construct the file key using account_id, date, and arn
+            file_key = f"health/{account_id}/{start_date}/{arn}.json"
             s3.put_object(Bucket=bucket_name, Key=file_key, Body=event_json)
+
             print(f"Uploaded {file_key}")
     print("Health upload done!")
 

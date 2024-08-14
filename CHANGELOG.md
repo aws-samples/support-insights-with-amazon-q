@@ -2,7 +2,8 @@
 
 ## Support Collector Lambda v1.0.1
 
-* Partition support cases using their creation date in S3 (YYYY/MM) to avoid saving duplicates on the daily sync
+* Partition support cases and Health data using their creation date in S3 (YYYY/MM) to avoid saving duplicates on the daily sync
+* Flatten Trusted Advisor checks in S3 to avoid duplicates during daily sync.
 
 ## Support Collector Lambda v1.0.0
 

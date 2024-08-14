@@ -1,32 +1,38 @@
 import json
-import datetime
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import logging
 import boto3
 from botocore.exceptions import ClientError
+
+from utils import convert_time_to_month_year
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 session = boto3.Session()
 
-
 def save_to_s3(cases_by_account, bucket_name):
     region = session.region_name
     s3 = session.client("s3", region_name=region)
-    current_date = datetime.datetime.now().strftime(
-        "%Y-%m-%d"
-    )  # Format the date as YYYY-MM-DD
 
     print(f"The Support cases are being uploaded to S3 bucket {bucket_name}...")
     for account_id, cases in cases_by_account.items():
         for case in cases:
-            case_id = case["case"]["displayId"]  # Extracting case ID for filename
-            case_json = json.dumps(case, ensure_ascii=False).encode(
-                "utf-8"
-            )  # Serialize case data to JSON with UTF-8 encoding
-            file_key = f"support-cases/{account_id}/{current_date}/{case_id}.json"
+            # Extracting case ID for filename
+            case_id = case["case"]["displayId"]
+
+            # Extracting creation time for partitioning in S3
+            time_created = case["case"]["timeCreated"]
+            # Convert the time_created in the format "2024-07-23T15:49:29.995Z" to "2024/07"
+            creation_date = convert_time_to_month_year(iso_datetime=time_created)
+
+            # Serialize case data to JSON with UTF-8 encoding
+            case_json = json.dumps(case, ensure_ascii=False).encode("utf-8")
+
+            file_key = f"support-cases/{account_id}/{creation_date}/{case_id}.json"
             s3.put_object(Bucket=bucket_name, Key=file_key, Body=case_json)
+
             print(f"Uploaded {file_key}")
     print("Support cases upload done!")
 
@@ -45,14 +51,14 @@ def get_support_cases(credentials):
     return cases
 
 
-def describe_cases(after_time, resolved):
+def describe_cases(after_time, include_resolved):
     """
     Describe support cases over a period of time, optionally filtering
     by status.
 
     :param after_time: The start time to include for cases.
     :param before_time: The end time to include for cases.
-    :param resolved: True to include resolved cases in the results,
+    :param include_resolved: True to include resolved cases in the results,
         otherwise results are open cases.
     :return: The final status of the case.
     """
@@ -62,7 +68,7 @@ def describe_cases(after_time, resolved):
         paginator = support_client.get_paginator("describe_cases")
         for page in paginator.paginate(
             afterTime=after_time,
-            includeResolvedCases=resolved,
+            includeResolvedCases=include_resolved,
             includeCommunications=True,
             language="en",
         ):
@@ -85,11 +91,10 @@ def describe_cases(after_time, resolved):
 
 
 def list_all_cases(days):
-    include_communications = True
-    end_date = datetime.datetime.utcnow().date()
-    start_date = end_date - datetime.timedelta(days)
+    include_resolved = True
+    start_date = datetime.now(timezone.utc).date() - timedelta(days)
     start_time = str(start_date)
-    all_cases = describe_cases(start_time, include_communications)
+    all_cases = describe_cases(start_time, include_resolved)
 
     return all_cases
 

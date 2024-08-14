@@ -93,7 +93,7 @@ To deploy this solution, you will need to know the `<organization-id>`, `<root-i
    - Update the bucket policy for the support data bucket to allow member accounts to upload their support data.
    - Deploy a stackset to run a one time sync to fetch historical support data and load to S3 data bucket.
 
-The bucket policy for the support data is generated in the file `output_bucket_policy.json` and is similar to the following one:
+The bucket policy for the support data is generated in the file `output_bucket_policy.json` and the script will ask you if you want to overwrite the bucket policy. If you decline, then you will have to update it manually. The policy is similar to the following one:
 
 ```json
 {

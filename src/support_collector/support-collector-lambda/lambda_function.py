@@ -1,9 +1,6 @@
 import importlib
-import boto3
-
 
 def lambda_handler(event, context):
-    lambda_client = boto3.client("lambda")
     account_id = context.invoked_function_arn.split(":")[4]
 
     # Get PAST_NO_OF_DAYS from event parameters

@@ -1,22 +1,23 @@
 #!/bin/bash
-echo "This script will deploy the solution to an organization.\n"
+printf "This script will deploy the solution to an organization.\n\n"
 
-echo "Enter the OU IDs separated by commas (ie: ou-xxxxxxxxxx1,ou-xxxxxxxxxx2): "
+printf "Enter the OU IDs separated by commas (ie: ou-xxxxxxxxxx1,ou-xxxxxxxxxx2): "
 read OU_IDS
-echo ""
+printf "\n\n"
 
-echo "Enter the data collection S3 bucket name in the management account: "
+printf "Enter the data collection S3 bucket name in the management account: "
 read DATA_BUCKET_NAME
-echo ""
+printf "\n\n"
 
-echo "Do you want the script to overwrite the data collection bucket policy on your behalf?\nThis requires PutBucketPolicy permission and it will OVERWRITE the current policy.\nIf the policy is not set, member accounts may not be able to store their data properly. (Y/N, default: Y): "
+printf "Do you want the script to overwrite the data collection bucket policy on your behalf?\nThis requires PutBucketPolicy permission and it will OVERWRITE the current policy.\nIf the policy is not set, member accounts may not be able to store their data properly. (Y/N, default: Y): "
 read OVERWRITE_DATA_BUCKET_POLICY_ANSWER
+if [ "$OVERWRITE_DATA_BUCKET_POLICY_ANSWER" != "${OVERWRITE_DATA_BUCKET_POLICY_ANSWER#[Yy]}" ] ;then
 if [ "$OVERWRITE_DATA_BUCKET_POLICY_ANSWER" != "${OVERWRITE_DATA_BUCKET_POLICY_ANSWER#[Yy]}" ] ;then
     OVERWRITE_DATA_BUCKET_POLICY=--overwrite-data-bucket-policy
 else
     OVERWRITE_DATA_BUCKET_POLICY="--no-overwrite-data-bucket-policy"
 fi
-echo ""
+printf "\n\n"
 
-echo "Invoking deploy_infrastructure.py..."
+printf "Invoking deploy_infrastructure.py...\n"
 python3 deploy_infrastructure.py --data-bucket "${DATA_BUCKET_NAME}" --ou-ids "${OU_IDS}" "${OVERWRITE_DATA_BUCKET_POLICY}"

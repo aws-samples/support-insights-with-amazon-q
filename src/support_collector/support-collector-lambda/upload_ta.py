@@ -1,5 +1,4 @@
 import json
-import datetime
 from collections import defaultdict
 import boto3
 

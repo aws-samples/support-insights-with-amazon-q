@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import logging
 import boto3
@@ -105,8 +105,7 @@ def describe_cases(after_time, include_resolved):
 
 def list_all_cases(days):
     include_resolved = True
-    end_date = datetime.datetime.utcnow().date()
-    start_date = end_date - datetime.timedelta(days)
+    start_date = datetime.now(timezone.utc).date() - timedelta(days)
     start_time = str(start_date)
     all_cases = describe_cases(start_time, include_resolved)
 

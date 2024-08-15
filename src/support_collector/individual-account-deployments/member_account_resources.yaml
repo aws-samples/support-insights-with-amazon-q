@@ -56,8 +56,8 @@ Resources:
       Role: !GetAtt SupportInsightsLambdaExecutionRole.Arn
       Code:
         S3Bucket: ws-assets-prod-iad-r-iad-ed304a55c2ca1aee
-        S3Key: 741340b0-0c84-4a80-8ccf-e351dcc826c0/support-collector-lambda.zip
-      Runtime: python3.8
+        S3Key: 741340b0-0c84-4a80-8ccf-e351dcc826c0/support-collector-lambda-v1.0.1.zip
+      Runtime: python3.11
       Timeout: 900
 
   EventBridgeRuleForHistoricalSupportData:

@@ -207,3 +207,30 @@ Resources:
      SyncSchedule: 'cron(0 0 * * ? *)'
      IndexId: !GetAtt QBusinessIndex.IndexId
      RoleArn: !GetAtt QBusinessDataSourceRole.Arn
+
+Outputs:
+  QBusinessApplicationId:
+    Description: Q Application Id
+    Value: !GetAtt QBusinessApp.ApplicationId
+    Export:
+      Name:  QBusinessApplicationId
+  QBusinessIndexId:
+    Description: Q Business Index Id
+    Value: !GetAtt QBusinessIndex.IndexId
+    Export:
+      Name: QBusinessIndexId
+  QBusinessDataSourceRoleArn:
+    Description: Q Business Data Source Role Arn
+    Value: !GetAtt QBusinessDataSourceRole.Arn
+    Export:
+      Name: QBusinessDataSourceRoleArn
+  QBusinessDataSourceManagedPolicyArn:
+    Description: Q Business Data Source Managed Policy Arn
+    Value: !GetAtt QBusinessDataSourceManagedPolicy.PolicyArn
+    Export:
+      Name: QBusinessDataSourceManagedPolicyArn
+  S3DataSourceBucketName:
+    Description: S3 Bucket Name for the support data
+    Value: !Ref S3DataSourceBucket
+    Export:
+      Name: S3DataSourceBucketName

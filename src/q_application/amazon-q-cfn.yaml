@@ -163,8 +163,33 @@ Resources:
   QBusinessIndex:
     Type: AWS::QBusiness::Index
     Properties:
-     ApplicationId: !GetAtt  QBusinessApp.ApplicationId
-     DisplayName: qci-insights-index
+      ApplicationId: !GetAtt  QBusinessApp.ApplicationId
+      DisplayName: qci-insights-index
+      DocumentAttributeConfigurations:
+        # Health events
+        - Name: 'startTime'
+          Search: DISABLED
+          Type: DATE
+        - Name: 'lastUpdatedTime'
+          Search: DISABLED
+          Type: DATE
+        - Name: 'endTime'
+          Search: DISABLED
+          Type: DATE
+        # Support cases
+        - Name: 'timeCreated'
+          Search: DISABLED
+          Type: DATE
+        # Trusted Advisor fields
+        - Name: 'timestamp'
+          Search: DISABLED
+          Type: DATE
+        - Name: 'estimatedMonthlySavings'
+          Search: DISABLED
+          Type: NUMBER
+        - Name: 'estimatedPercentMonthlySavings'
+          Search: DISABLED
+          Type: NUMBER
 
   QBusinessRetriver:
     Type: AWS::QBusiness::Retriever

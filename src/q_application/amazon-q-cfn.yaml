@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: 
+Description:
   Deploy Amazon Q Business Application with support data.
 Parameters:
   S3DataSourceBucket:
@@ -23,20 +23,20 @@ Resources:
   QBusinessWebExperienceServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      AssumeRolePolicyDocument: 
+      AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Principal: 
-              Service: 
+            Principal:
+              Service:
                - application.qbusiness.amazonaws.com
-            Action: 
+            Action:
               - 'sts:AssumeRole'
               - 'sts:SetContext'
             Condition:
-              StringEquals: 
+              StringEquals:
                 "aws:SourceAccount": !Sub "${AWS::AccountId}"
-              ArnLike: 
+              ArnLike:
                 "aws:SourceArn": !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
       Path: /service-role/
       ManagedPolicyArns:
@@ -44,7 +44,7 @@ Resources:
 
   QBusinessWebExperienceServiceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
-    Properties:      
+    Properties:
       Description: Q Web Experience Managed Policy
       Path: /service-role/
       PolicyDocument:
@@ -52,7 +52,7 @@ Resources:
         Statement:
           - Sid: "QBusinessConversationPermission"
             Effect: Allow
-            Action: 
+            Action:
             - "s3:GetObject"
             - "qbusiness:Chat"
             - "qbusiness:ChatSync"
@@ -74,7 +74,7 @@ Resources:
                 "kms:ViaService": !Sub "qbusiness:${AWS::Region}:amazonaws.com"
           - Sid: "QBusinessQAppsPermissions"
             Effect: Allow
-            Action: 
+            Action:
             -  "qapps:CreateQApp"
             -  "qapps:PredictProblemStatementFromConversation"
             -  "qapps:PredictQAppFromProblemStatement"
@@ -100,19 +100,19 @@ Resources:
   QBusinessDataSourceRole:
     Type: AWS::IAM::Role
     Properties:
-      AssumeRolePolicyDocument: 
+      AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
-            Principal: 
-              Service: 
+            Principal:
+              Service:
                - qbusiness.amazonaws.com
-            Action: 
+            Action:
               - 'sts:AssumeRole'
             Condition:
-              StringEquals: 
+              StringEquals:
                 "aws:SourceAccount": !Sub "${AWS::AccountId}"
-              ArnLike: 
+              ArnLike:
                 "aws:SourceArn": !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
       Path: /service-role/
       ManagedPolicyArns:
@@ -120,7 +120,7 @@ Resources:
 
   QBusinessDataSourceManagedPolicy:
     Type: AWS::IAM::ManagedPolicy
-    Properties:      
+    Properties:
       Description: Q DataSource Managed Policy
       Path: /service-role/
       PolicyDocument:
@@ -142,7 +142,7 @@ Resources:
                 "aws:ResourceAccount": !Sub "${AWS::AccountId}"
           - Sid: "AllowsAmazonQToIngestDocuments"
             Effect: Allow
-            Action: 
+            Action:
             - "qbusiness:BatchPutDocument"
             - "qbusiness:BatchDeleteDocument"
             Resource:
@@ -191,28 +191,28 @@ Resources:
           Search: DISABLED
           Type: NUMBER
 
-  QBusinessRetriver:
+  QBusinessRetriever:
     Type: AWS::QBusiness::Retriever
     Properties:
-     ApplicationId: !GetAtt  QBusinessApp.ApplicationId
-     Configuration:
-      NativeIndexConfiguration:
-        IndexId: !GetAtt QBusinessIndex.IndexId
-     DisplayName: qci-insights-index
-     Type: NATIVE_INDEX
+      ApplicationId: !GetAtt  QBusinessApp.ApplicationId
+      Configuration:
+        NativeIndexConfiguration:
+          IndexId: !GetAtt QBusinessIndex.IndexId
+      DisplayName: qci-insights-index
+      Type: NATIVE_INDEX
 
   QBusinessWebExperience:
     Type: AWS::QBusiness::WebExperience
     Properties:
-     ApplicationId: !GetAtt  QBusinessApp.ApplicationId
-     RoleArn: !GetAtt QBusinessWebExperienceServiceRole.Arn
-     Title: Q Support Insights 
+      ApplicationId: !GetAtt  QBusinessApp.ApplicationId
+      RoleArn: !GetAtt QBusinessWebExperienceServiceRole.Arn
+      Title: Q Support Insights 
 
   QBusinessDataSource:
     Type: AWS::QBusiness::DataSource
     Properties:
-     ApplicationId: !GetAtt QBusinessApp.ApplicationId
-     Configuration:
+      ApplicationId: !GetAtt QBusinessApp.ApplicationId
+      Configuration:
         type: "S3"
         version: "1.0.0"
         syncMode: FULL_CRAWL
@@ -228,10 +228,10 @@ Resources:
               - dataSourceFieldName: "s3_document_id"
                 indexFieldName: "s3_document_id"
                 indexFieldType: "STRING"
-     DisplayName: qci-insights-datasource
-     SyncSchedule: 'cron(0 0 * * ? *)'
-     IndexId: !GetAtt QBusinessIndex.IndexId
-     RoleArn: !GetAtt QBusinessDataSourceRole.Arn
+      DisplayName: qci-insights-datasource
+      SyncSchedule: 'cron(0 0 * * ? *)'
+      IndexId: !GetAtt QBusinessIndex.IndexId
+      RoleArn: !GetAtt QBusinessDataSourceRole.Arn
 
 Outputs:
   QBusinessApplicationId:

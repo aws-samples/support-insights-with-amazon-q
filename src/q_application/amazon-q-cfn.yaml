@@ -190,7 +190,7 @@ Resources:
      Configuration:
         type: "S3"
         version: "1.0.0"
-        syncMode: "FORCED_FULL_CRAWL"
+        syncMode: FULL_CRAWL
         additionalProperties:
           inclusionPrefixes:
             - ""

@@ -11,6 +11,7 @@ Parameters:
   QBusinessApplicationName:
     Description: The name of your Q Business Application
     Type: String
+    Default: 'qsi-app'
  
 Resources:
   QBusinessApp:
@@ -72,30 +73,100 @@ Resources:
             Condition:
               StringEquals:
                 "kms:ViaService": !Sub "qbusiness:${AWS::Region}:amazonaws.com"
-          - Sid: "QBusinessQAppsPermissions"
+          # q apps permissions: https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/deploy-experience-iam-role.html#deploy-q-apps-iam-permissions
+          - Sid: "QBusinessSetContextPermissions"
+            Effect: Allow
+            Action: "sts:SetContext"
+            Resource: !Sub "arn:${AWS::Partition}:sts::*:self"
+            Condition:
+              StringLike:
+                "aws:CalledViaLast": "qbusiness.amazonaws.com"
+          - Sid: "QAppsResourceAgnosticPermissions"
             Effect: Allow
             Action:
-            -  "qapps:CreateQApp"
-            -  "qapps:PredictProblemStatementFromConversation"
-            -  "qapps:PredictQAppFromProblemStatement"
-            -  "qapps:CopyQApp"
-            -  "qapps:GetQApp"
-            -  "qapps:ListQApps"
-            -  "qapps:UpdateQApp"
-            -  "qapps:DeleteQApp"
-            -  "qapps:AssociateQAppWithUser"
-            -  "qapps:DisassociateQAppFromUser"
-            -  "qapps:ImportDocumentToQApp"
-            -  "qapps:ImportDocumentToQAppSession"
-            -  "qapps:CreateLibraryItem"
-            -  "qapps:GetLibraryItem"
-            -  "qapps:UpdateLibraryItem"
-            -  "qapps:CreateLibraryItemReview"
-            -  "qapps:ListLibraryItems"
-            -  "qapps:CreateSubscriptionToken"
-            -  "qapps:StartQAppSession"
-            -  "qapps:StopQAppSession"
+              - "qapps:CreateQApp"
+              - "qapps:PredictQApp"
+              - "qapps:PredictProblemStatementFromConversation"
+              - "qapps:PredictQAppFromProblemStatement"
+              - "qapps:ListQApps"
+              - "qapps:ListLibraryItems"
+              - "qapps:CreateSubscriptionToken"
             Resource: !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
+          - Sid: "QAppsAppUniversalPermissions"
+            Effect: Allow
+            Action:
+              - "qapps:DisassociateQAppFromUser"
+            Resource: !Sub "arn:${AWS::Partition}:qapps:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/qapp/*"
+          - Sid: "QAppsAppOwnerPermissions"
+            Effect: Allow
+            Action:
+              - "qapps:GetQApp"
+              - "qapps:CopyQApp"
+              - "qapps:UpdateQApp"
+              - "qapps:DeleteQApp"
+              - "qapps:ImportDocument"
+              - "qapps:ImportDocumentToQApp"
+              - "qapps:CreateLibraryItem"
+              - "qapps:UpdateLibraryItem"
+              - "qapps:StartQAppSession"
+            Resource: !Sub "arn:${AWS::Partition}:qapps:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/qapp/*"
+            Condition:
+              StringEqualsIgnoreCase:
+                "qapps:UserIsAppOwner": "true"
+          - Sid: "QAppsPublishedAppPermissions"
+            Effect: Allow
+            Action:
+              - "qapps:GetQApp"
+              - "qapps:CopyQApp"
+              - "qapps:AssociateQAppWithUser"
+              - "qapps:GetLibraryItem"
+              - "qapps:CreateLibraryItemReview"
+              - "qapps:AssociateLibraryItemReview"
+              - "qapps:DisassociateLibraryItemReview"
+              - "qapps:StartQAppSession"
+            Resource: !Sub "arn:${AWS::Partition}:qapps:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/qapp/*"
+            Condition:
+              StringEqualsIgnoreCase:
+                "qapps:AppIsPublished": "true"
+          - Sid: "QAppsAppSessionModeratorPermissions"
+            Effect: Allow
+            Action:
+              - "qapps:ImportDocument"
+              - "qapps:ImportDocumentToQAppSession"
+              - "qapps:GetQAppSession"
+              - "qapps:GetQAppSessionMetadata"
+              - "qapps:UpdateQAppSession"
+              - "qapps:UpdateQAppSessionMetadata"
+              - "qapps:StopQAppSession"
+            Resource: !Sub "arn:${AWS::Partition}:qapps:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/qapp/*/session/*"
+            Condition:
+              StringEqualsIgnoreCase:
+                "qapps:UserIsSessionModerator": "true"
+          - Sid: "QAppsSharedAppSessionPermissions"
+            Effect: Allow
+            Action:
+              - "qapps:ImportDocument"
+              - "qapps:ImportDocumentToQAppSession"
+              - "qapps:GetQAppSession"
+              - "qapps:GetQAppSessionMetadata"
+              - "qapps:UpdateQAppSession"
+            Resource: !Sub "arn:${AWS::Partition}:qapps:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/qapp/*/session/*"
+            Condition:
+              StringEqualsIgnoreCase:
+                "qapps:SessionIsShared": "true"
+          # allowing user to list datasources in qapps: https://docs.aws.amazon.com/amazonq/latest/qbusiness-ug/deploy-experience-iam-role.html#deploy-data-source-iam-permissions
+          - Sid: "QBusinessIndexPermission"
+            Effect: Allow
+            Action:
+              - "qbusiness:ListIndices"
+            Resource: !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
+          - Sid: "QBusinessDataSourcePermission"
+            Effect: Allow
+            Action:
+              - "qbusiness:ListDataSources"
+            Resource: 
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
+              - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/index/*"
 
   QBusinessDataSourceRole:
     Type: AWS::IAM::Role

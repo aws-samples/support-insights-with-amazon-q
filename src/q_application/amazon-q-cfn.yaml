@@ -226,6 +226,7 @@ Resources:
             - "qbusiness:DeleteGroup"
             - "qbusiness:UpdateUser"
             - "qbusiness:ListGroups"
+            - "qbusiness:BatchPutDocument"
             Resource:
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}"
             - !Sub "arn:${AWS::Partition}:qbusiness:${AWS::Region}:${AWS::AccountId}:application/${QBusinessApp.ApplicationId}/index/${QBusinessIndex.IndexId}"

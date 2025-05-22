@@ -59,3 +59,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     deploy_lambda_function(args.resource_bucket_name, args.support_data_bucket_name)
+    

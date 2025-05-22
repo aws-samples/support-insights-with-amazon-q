@@ -8,6 +8,9 @@ Parameters:
   SupportDataBucketName:
     Type: String
     Description: Name of the S3 bucket containing support data
+  ResourceBucketName:
+    Type: String
+    Description: Name of the S3 bucket containing the Lambda package in the member account
 
 Resources:
   SupportInsightsLambdaExecutionRole:
@@ -34,8 +37,22 @@ Resources:
                   - support:DescribeCommunication
                   - support:DescribeTrustedAdvisorChecks
                   - support:DescribeTrustedAdvisorCheckResult
+                  - support:CreateCase
+                  - support:ResolveCase
+                  - support:ReopenCase
+                  - support:AddCommunicationToCase
+                  - support:DescribeTrustedAdvisorCheckRefreshStatuses
                   - health:DescribeEvents
                   - health:DescribeEventDetails
+                  - health:DescribeEntityAggregates
+                  - health:DescribeAffectedEntities
+                  - health:DescribeEventAggregates
+                  - health:DescribeEventTypes
+                  - health:DescribeEventsForOrganization
+                  - health:DescribeAffectedEntitiesForOrganization
+                  - health:DescribeEventDetailsForOrganization
+                  - health:DescribeEntityAggregatesForOrganization
+                  - health:DescribeAffectedAccountsForOrganization
                 Resource: '*'
         - PolicyName: S3AccessPolicy
           PolicyDocument:
@@ -46,7 +63,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:PutObjectAcl
-                Resource: !Sub 'arn:${AWS::Partition}:s3:::${SupportDataBucketName}/*'
+                Resource: !Sub 'arn:aws:s3:::${SupportDataBucketName}/*'
 
   SupportInsightsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -55,10 +72,14 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt SupportInsightsLambdaExecutionRole.Arn
       Code:
-        S3Bucket: ws-assets-prod-iad-r-iad-ed304a55c2ca1aee
-        S3Key: 741340b0-0c84-4a80-8ccf-e351dcc826c0/support-collector-lambda-v1.0.1.zip
+        S3Bucket: !Ref ResourceBucketName
+        S3Key: support-collector-lambda.zip
       Runtime: python3.11
       Timeout: 900
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref SupportDataBucketName
+          S3_PREFIX: 'support-cases'
 
   EventBridgeRuleForHistoricalSupportData:
     Type: AWS::Events::Rule
@@ -91,8 +112,29 @@ Resources:
         Mode: "OFF"
       Target:
         Arn: !GetAtt SupportInsightsLambdaFunction.Arn
-        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${SupportDataBucketName}", "case": true, "health": true, "ta": true}'
+        Input: !Sub '{"past_no_of_days": 1, "bucket_name": "${SupportDataBucketName}", "case": false, "health": true, "ta": true}'
         RoleArn: !GetAtt SchedulerRole.Arn
+
+  SupportCaseEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: SupportCaseEventRule
+      Description: "Rule to capture AWS Support API events"
+      EventPattern:
+        source:
+          - "aws.support"
+        detail-type:
+          - "Support Case Update"
+        detail:
+          event-name:
+            - "CreateCase"
+            - "AddCommunicationToCase"
+            - "ResolveCase"
+            - "ReopenCase"
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SupportInsightsLambdaFunction.Arn
+          Id: "SupportCaseHandlerTarget"
 
   SchedulerRole:
     Type: AWS::IAM::Role
@@ -129,7 +171,18 @@ Resources:
       SourceArn: !GetAtt EventBridgeRuleForDailyRun.Arn
       Action: lambda:InvokeFunction
 
+  LambdaPermissionForSupportCaseEventRule:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SupportInsightsLambdaFunction.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SupportCaseEventRule.Arn
+      Action: lambda:InvokeFunction
+
 Outputs:
   LambdaExecutionRoleArn:
     Description: ARN of the IAM role for the Lambda function
     Value: !GetAtt SupportInsightsLambdaExecutionRole.Arn
+  SupportCaseEventRuleArn:
+    Description: The ARN of the EventBridge rule for AWS Support API events
+    Value: !GetAtt SupportCaseEventRule.Arn

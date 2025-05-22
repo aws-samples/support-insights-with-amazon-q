@@ -127,3 +127,43 @@ def upload_all_cases_to_s3(bucket_name, past_no_of_days, account_id):
         cases_by_account[account_id].append(case_dict)
 
     save_to_s3(cases_by_account, bucket_name)
+
+def upload_case_to_s3(bucket_name, account_id, case_id):
+    """
+    Upload a single support case to S3
+    :param bucket_name: The S3 bucket name
+    :param account_id: AWS account ID
+    :param case_id: Support case display ID
+    """
+    try:
+        support_client = session.client("support")
+        
+        # Get single case with displayId filter
+        case_response = support_client.describe_cases(
+            displayId=case_id,
+            includeCommunications=True,
+            language="en"
+        )
+        
+        if not case_response['cases']:
+            raise ValueError(f"No case found with display ID {case_id}")
+            
+        case = case_response['cases'][0]
+        
+        # Create the case dictionary
+        cases_by_account = defaultdict(list)
+        case_dict = {
+            "account_id": account_id,
+            "case": case,
+            "support_case_context": create_support_case_context(
+                case, account_id
+            )
+        }
+        cases_by_account[account_id].append(case_dict)
+        
+        # Save to S3
+        save_to_s3(cases_by_account, bucket_name)
+        
+    except Exception as e:
+        logger.error(f"Error uploading case {case_id}: {str(e)}")
+        raise

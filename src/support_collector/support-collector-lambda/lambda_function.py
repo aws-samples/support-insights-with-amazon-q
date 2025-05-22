@@ -1,33 +1,32 @@
 import importlib
 import os
-import json
 
 def upload_case_on_case_event(event, account_id):
     try:
         # Get bucket name from environment variable for event-based triggers
         bucket_name = os.environ['S3_BUCKET_NAME']
-        
+
         # Import the upload_cases module
         bulk_upload_cases = importlib.import_module("upload_cases")
-                    
+
         case_id = event['detail']['display-id']
         event_name = event['detail']['event-name']
-        
+
         print(f"Processing support case event: {event_name} for case {case_id}")
         print(f"Using bucket: {bucket_name}")
-        
+
         # Upload the specific case to S3
         bulk_upload_cases.upload_case_to_s3(
             bucket_name=bucket_name,
             account_id=account_id,
             case_id=case_id
         )
-        
+
         return {
             "statusCode": 200,
             "body": f"Successfully processed {event_name} event for case {case_id}"
         }
-        
+
     except KeyError as e:
         error_msg = f"Missing required field: {str(e)}"
         print(error_msg)
@@ -43,7 +42,7 @@ def upload_case_on_case_event(event, account_id):
             "body": error_msg
         }
 
-    
+
 def upload_case_on_scheduler_run(event, account_id):
     # Handle scheduled runs (using event parameters)
     bucket_name = event.get("bucket_name")
@@ -102,9 +101,9 @@ def upload_case_on_scheduler_run(event, account_id):
 
 def lambda_handler(event, context):
     account_id = context.invoked_function_arn.split(":")[4]
-    
+
     # Check if this is a Support Case Update event
     if event.get('source') == 'aws.support' and event.get('detail-type') == 'Support Case Update':
         return upload_case_on_case_event(event, account_id)
-    
+
     return upload_case_on_scheduler_run(event, account_id)

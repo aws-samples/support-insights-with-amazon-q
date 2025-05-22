@@ -1,6 +1,5 @@
-import boto3
-import time
 import os
+import boto3
 
 def deploy_lambda_function(resource_bucket_name, support_data_bucket_name):
     # Create CloudFormation client

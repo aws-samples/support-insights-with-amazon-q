@@ -1,0 +1,487 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'CloudFormation template to create Lambda functions for processing support case metadata'
+
+Parameters:
+  ExistingDataBucketName:
+    Type: String
+    Description: Name of the existing S3 bucket containing the case files
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: support-case-metadata-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:ListObjects
+                  - s3:ListObjectsV2
+                  - s3:PutBucketNotification
+                Resource:
+                  - !Sub arn:aws:s3:::${ExistingDataBucketName}
+                  - !Sub arn:aws:s3:::${ExistingDataBucketName}/*
+
+  ExportHistoricalCaseMetadataFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: export-historical-support-case-metadata
+      Description: "Lambda function to export historical support cases metadata into resolved and active CSV files"
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import csv
+          import os
+          from io import StringIO
+          from datetime import datetime
+          from botocore.exceptions import ClientError
+
+          S3_PREFIX = 'support-cases/'
+
+          def process_batch(s3, bucket_name, resolved_records, active_records, files):
+              """Process batches of records into separate files for resolved and active cases"""
+              timestamp = datetime.now().strftime('%Y%m%d')
+              
+              # Process resolved cases
+              if resolved_records:
+                  csv_buffer = StringIO()
+                  fieldnames = ['account_id', 'caseId', 'timeCreated', 'severityCode', 
+                              'status', 'subject', 'categoryCode', 'serviceCode']
+                  
+                  writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+                  writer.writeheader()
+                  for record in resolved_records:
+                      writer.writerow(record)
+                  
+                  resolved_key = f'metadata/historical_resolved_cases_until_{timestamp}.csv'
+                  s3.put_object(
+                      Bucket=bucket_name,
+                      Key=resolved_key,
+                      Body=csv_buffer.getvalue(),
+                      ContentType='text/csv'
+                  )
+                  files['resolved'] = resolved_key
+                  print(f"Exported {len(resolved_records)} resolved cases")
+
+              # Process active cases
+              if active_records:
+                  csv_buffer = StringIO()
+                  fieldnames = ['account_id', 'caseId', 'timeCreated', 'severityCode', 
+                              'status', 'subject', 'categoryCode', 'serviceCode']
+                  
+                  writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+                  writer.writeheader()
+                  for record in active_records:
+                      writer.writerow(record)
+                  
+                  active_key = 'metadata/active_or_new_cases.csv'
+                  s3.put_object(
+                      Bucket=bucket_name,
+                      Key=active_key,
+                      Body=csv_buffer.getvalue(),
+                      ContentType='text/csv'
+                  )
+                  files['active'] = active_key
+                  print(f"Exported {len(active_records)} active cases")
+
+          def lambda_handler(event, context):
+              try:
+                  # Get bucket name from environment variable
+                  bucket_name = os.environ['BUCKET_NAME']
+                  if not bucket_name:
+                      raise ValueError("Bucket name not configured in environment variables")
+                      
+                  # Initialize S3 client
+                  s3 = boto3.client('s3')
+                  
+                  # Test bucket access
+                  try:
+                      s3.head_bucket(Bucket=bucket_name)
+                  except ClientError as e:
+                      raise Exception(f"Cannot access bucket {bucket_name}: {str(e)}")
+                                                      
+                  # Initialize counters and lists
+                  resolved_records = []
+                  active_records = []
+                  files_processed = 0
+                  output_files = {'resolved': None, 'active': None}
+                  batch_size = 10000  # Process 10000 records per batch
+                  
+                  # List all objects in the cases prefix with pagination
+                  paginator = s3.get_paginator('list_objects_v2')
+                  pages = paginator.paginate(Bucket=bucket_name, Prefix=S3_PREFIX)
+                  
+                  # Process each JSON file
+                  for page in pages:
+                      if 'Contents' in page:
+                          for obj in page['Contents']:
+                              if obj['Key'].endswith('.json'):
+                                  try:
+                                      response = s3.get_object(Bucket=bucket_name, Key=obj['Key'])
+                                      file_content = response['Body'].read().decode('utf-8')
+                                      json_data = json.loads(file_content)
+                                      
+                                      case_data = json_data['case']
+                                      record = {
+                                          'account_id': json_data['account_id'],
+                                          'caseId': case_data['displayId'],
+                                          'timeCreated': case_data['timeCreated'],
+                                          'severityCode': case_data['severityCode'],
+                                          'status': case_data['status'],
+                                          'subject': case_data['subject'],
+                                          'categoryCode': case_data['categoryCode'],
+                                          'serviceCode': case_data['serviceCode']
+                                      }
+
+                                      # Separate resolved and active cases
+                                      if case_data['status'].lower() == 'resolved':
+                                          resolved_records.append(record)
+                                      else:
+                                          active_records.append(record)
+                                          
+                                      files_processed += 1
+                                      
+                                      # Process batch when reaching batch size
+                                      if len(resolved_records) + len(active_records) >= batch_size:
+                                          process_batch(s3, bucket_name, resolved_records, active_records, output_files)
+                                          resolved_records = []  # Clear records after processing
+                                          active_records = []
+                                          
+                                  except Exception as e:
+                                      print(f"Error processing file {obj['Key']}: {str(e)}")
+                                      continue
+                  
+                  # Process remaining records
+                  if resolved_records or active_records:
+                      process_batch(s3, bucket_name, resolved_records, active_records, output_files)
+                  
+                  if files_processed == 0:
+                      return {
+                          'statusCode': 200,
+                          'body': f'No files found to process in prefix {S3_PREFIX}'
+                      }
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': {
+                          'message': 'CSV files created successfully',
+                          'resolved_cases_file': output_files['resolved'],
+                          'active_cases_file': output_files['active'],
+                          'files_processed': files_processed,
+                          'resolved_count': len(resolved_records),
+                          'active_count': len(active_records)
+                      }
+                  }
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': f'Error: {str(e)}'
+                  }
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 1024
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ExistingDataBucketName
+
+  UpdateRealtimeCaseMetadataFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: update-realtime-support-case-metadata
+      Description: "Lambda function to process real-time updates to support case metadata"
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import csv
+          from io import StringIO
+          from datetime import datetime
+
+          def get_timestamp_from_historical_file(s3_client, bucket):
+              """Get timestamp from the latest historical resolved cases file"""
+              try:
+                  response = s3_client.list_objects_v2(
+                      Bucket=bucket,
+                      Prefix='metadata/historical_resolved_cases_until_'
+                  )
+                  
+                  if 'Contents' in response:
+                      historical_file = sorted(response['Contents'], key=lambda x: x['LastModified'], reverse=True)[0]
+                      historical_key = historical_file['Key']
+                      # Extract timestamp from filename
+                      timestamp = historical_key.split('_')[-1].split('.')[0]
+                      return timestamp
+              except Exception as e:
+                  print(f"Error getting timestamp from historical file: {str(e)}")
+                  return datetime.now().strftime('%Y%m%d')
+
+          def get_active_cases(s3_client, bucket):
+              """Get existing active cases"""
+              active_cases = {}
+              try:
+                  response = s3_client.get_object(
+                      Bucket=bucket, 
+                      Key='metadata/active_or_new_cases.csv'
+                  )
+                  content = response['Body'].read().decode('utf-8')
+                  reader = csv.DictReader(StringIO(content))
+                  active_cases = {row['caseId']: row for row in reader}
+                  print(f"Loaded {len(active_cases)} active cases")
+              except s3_client.exceptions.NoSuchKey:
+                  print("No active cases file found - will be created")
+              except Exception as e:
+                  print(f"Error reading active cases: {str(e)}")
+              
+              return active_cases
+
+          def update_active_cases(s3_client, bucket, active_cases):
+              """Update active cases CSV"""
+              if not active_cases:
+                  print("No active cases to write")
+                  return
+                  
+              csv_buffer = StringIO()
+              fieldnames = ['account_id', 'caseId', 'timeCreated', 'severityCode', 
+                          'status', 'subject', 'categoryCode', 'serviceCode']
+              
+              writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+              writer.writeheader()
+              for record in active_cases.values():
+                  writer.writerow(record)
+              
+              s3_client.put_object(
+                  Bucket=bucket,
+                  Key='metadata/active_or_new_cases.csv',
+                  Body=csv_buffer.getvalue(),
+                  ContentType='text/csv'
+              )
+              print(f"Updated active cases file with {len(active_cases)} records")
+
+          def update_resolved_cases(s3_client, bucket, resolved_case, timestamp):
+              """Update resolved cases CSV"""
+              resolved_cases = {}
+              resolved_key = f'metadata/resolved_cases_after_{timestamp}.csv'
+              
+              try:
+                  # Try to read existing resolved cases file
+                  response = s3_client.get_object(Bucket=bucket, Key=resolved_key)
+                  content = response['Body'].read().decode('utf-8')
+                  reader = csv.DictReader(StringIO(content))
+                  resolved_cases = {row['caseId']: row for row in reader}
+              except s3_client.exceptions.NoSuchKey:
+                  print(f"Creating new resolved cases file: {resolved_key}")
+              
+              # Add the newly resolved case
+              resolved_cases[resolved_case['caseId']] = resolved_case
+              
+              # Write back to S3
+              csv_buffer = StringIO()
+              fieldnames = ['account_id', 'caseId', 'timeCreated', 'severityCode', 
+                          'status', 'subject', 'categoryCode', 'serviceCode']
+              
+              writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+              writer.writeheader()
+              for record in resolved_cases.values():
+                  writer.writerow(record)
+              
+              s3_client.put_object(
+                  Bucket=bucket,
+                  Key=resolved_key,
+                  Body=csv_buffer.getvalue(),
+                  ContentType='text/csv'
+              )
+              print(f"Updated resolved cases file with case {resolved_case['caseId']}")
+              return resolved_key
+
+          def lambda_handler(event, context):
+              try:
+                  s3_client = boto3.client('s3')
+                  
+                  # Get bucket and key from the S3 event
+                  bucket = event['Records'][0]['s3']['bucket']['name']
+                  key = event['Records'][0]['s3']['object']['key']
+                  
+                  print(f"Processing file: {key} from bucket: {bucket}")
+                  
+                  # Process only JSON files in support-cases/ prefix
+                  if not key.startswith('support-cases/') or not key.endswith('.json'):
+                      print(f"Skipping non-case file: {key}")
+                      return {
+                          'statusCode': 200,
+                          'body': f'Skipping non-case file: {key}'
+                      }
+                  
+                  # Read the case JSON file
+                  response = s3_client.get_object(Bucket=bucket, Key=key)
+                  json_content = json.loads(response['Body'].read().decode('utf-8'))
+                  
+                  # Extract case metadata
+                  case_data = json_content['case']
+                  new_record = {
+                      'account_id': json_content['account_id'],
+                      'caseId': case_data['displayId'],
+                      'timeCreated': case_data['timeCreated'],
+                      'severityCode': case_data['severityCode'],
+                      'status': case_data['status'],
+                      'subject': case_data['subject'],
+                      'categoryCode': case_data['categoryCode'],
+                      'serviceCode': case_data['serviceCode']
+                  }
+                  
+                  print(f"Processing case: {new_record['caseId']} with status: {new_record['status']}")
+                  
+                  # Get existing active cases
+                  active_cases = get_active_cases(s3_client, bucket)
+                  
+                  # Check if this is an update or new case
+                  is_update = new_record['caseId'] in active_cases
+                  updated_file = None
+                  operation = None
+
+                  if new_record['status'].lower() == 'resolved':
+                      # Case is resolved - remove from active cases if exists
+                      if is_update:
+                          del active_cases[new_record['caseId']]
+                          print(f"Removed resolved case {new_record['caseId']} from active cases")
+                      
+                      # Add to resolved cases
+                      timestamp = get_timestamp_from_historical_file(s3_client, bucket)
+                      updated_file = update_resolved_cases(s3_client, bucket, new_record, timestamp)
+                      operation = 'MOVED_TO_RESOLVED'
+                      
+                      # Update active cases file (now without this case)
+                      update_active_cases(s3_client, bucket, active_cases)
+                  else:
+                      # Case is active - update or add to active cases
+                      active_cases[new_record['caseId']] = new_record
+                      update_active_cases(s3_client, bucket, active_cases)
+                      updated_file = 'metadata/active_or_new_cases.csv'
+                      operation = 'UPDATE' if is_update else 'INSERT'
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': {
+                          'message': 'Case processed successfully',
+                          'caseId': new_record['caseId'],
+                          'operation': operation,
+                          'status': new_record['status'],
+                          'updated_file': updated_file,
+                          'total_active_cases': len(active_cases)
+                      }
+                  }
+                  
+              except Exception as e:
+                  print(f"Error processing file {key}: {str(e)}")
+                  raise e
+      Runtime: python3.9
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ExistingDataBucketName
+
+  S3Trigger:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateRealtimeCaseMetadataFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:s3:::${ExistingDataBucketName}
+
+  S3NotificationCustomResource:
+    Type: Custom::S3BucketNotification
+    Properties:
+      ServiceToken: !GetAtt NotificationFunction.Arn
+      BucketName: !Ref ExistingDataBucketName
+      NotificationConfiguration:
+        LambdaFunctionConfigurations:
+          - Events: ['s3:ObjectCreated:*']
+            LambdaFunctionArn: !GetAtt UpdateRealtimeCaseMetadataFunction.Arn
+            Filter:
+              Key:
+                FilterRules:
+                  - Name: prefix
+                    Value: support-cases/
+                  - Name: suffix
+                    Value: .json
+
+  NotificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              try:
+                  if event['RequestType'] in ['Create', 'Update']:
+                      s3 = boto3.client('s3')
+                      bucket = event['ResourceProperties']['BucketName']
+                      notification = event['ResourceProperties']['NotificationConfiguration']
+                      s3.put_bucket_notification_configuration(
+                          Bucket=bucket,
+                          NotificationConfiguration=notification
+                      )
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+      Runtime: python3.9
+      Timeout: 30
+
+
+
+Outputs:
+  HistoricalLambdaFunctionName:
+    Description: Name of the historical export Lambda function
+    Value: !Ref ExportHistoricalCaseMetadataFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-HistoricalFunctionName"
+
+  HistoricalLambdaFunctionArn:
+    Description: ARN of the historical export Lambda function
+    Value: !GetAtt ExportHistoricalCaseMetadataFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-HistoricalFunctionArn"
+
+  RealtimeLambdaFunctionName:
+    Description: Name of the realtime update Lambda function
+    Value: !Ref UpdateRealtimeCaseMetadataFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-RealtimeFunctionName"
+
+  RealtimeLambdaFunctionArn:
+    Description: ARN of the realtime update Lambda function
+    Value: !GetAtt UpdateRealtimeCaseMetadataFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RealtimeFunctionArn"
+
+  LambdaRoleName:
+    Description: Name of the Lambda execution role
+    Value: !Ref LambdaExecutionRole
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleName"

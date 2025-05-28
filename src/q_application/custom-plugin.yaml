@@ -1,0 +1,661 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Q Health Query Assistant Plugin deployment'
+
+Parameters:
+  QApplicationId:
+    Type: String
+    Description: 'The ID of the existing Q application where the plugin will be deployed'
+    AllowedPattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    ConstraintDescription: 'Must be a valid UUID'
+
+  ExistingDataBucketName:
+    Type: String
+    Description: Name of the existing S3 bucket for data storage
+
+  ExistingResultsBucketName:
+    Type: String
+    Description: Name of the existing S3 bucket for Athena query results
+  
+  LambdaFunctionName:
+    Type: String
+    Description: Name of the Lambda function
+    Default: 'q-query-aggregation-assistant'
+
+  APIGatewayStageName:
+    Type: String
+    Description: Stage name for API Gateway deployment
+    Default: 'prod'
+
+  AthenaDatabaseName:
+    Type: String
+    Description: 'Name of the existing Athena database'
+    Default: 'default'
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: '^[a-z0-9_]*$'
+    ConstraintDescription: 'Database name must contain only lowercase letters, numbers, and underscores'
+
+Resources:
+  # Custom Resource for Token Generation
+  TokenGeneratorFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt TokenGeneratorRole.Arn
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import string
+          import random
+          import boto3
+          def handler(event, context):
+              if event['RequestType'] in ['Create', 'Update']:
+                  # Generate a random 20-character token
+                  chars = string.ascii_letters + string.digits
+                  token = ''.join(random.choice(chars) for _ in range(20))
+                  response_data = {'Token': token}
+              else:
+                  response_data = {'Token': ''}
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+      Runtime: python3.11
+      Timeout: 30
+
+  TokenGeneratorRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  GenerateToken:
+    Type: 'Custom::TokenGenerator'
+    Properties:
+      ServiceToken: !GetAtt TokenGeneratorFunction.Arn
+      # Add a random string to force update on stack update
+      UpdateToken: !Sub '${AWS::StackId}-${AWS::Region}'
+
+  HealthEventsTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      DatabaseName: !Ref AthenaDatabaseName
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: 'health_events'
+        TableType: EXTERNAL_TABLE
+        Parameters: {"classification": "json"}
+        StorageDescriptor:
+          Location: !Sub 's3://${ExistingDataBucketName}/health/'
+          InputFormat: 'org.apache.hadoop.mapred.TextInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.IgnoreKeyTextOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.openx.data.jsonserde.JsonSerDe'
+          Columns:
+            - Name: arn
+              Type: string
+            - Name: service
+              Type: string
+            - Name: eventtypecode
+              Type: string
+            - Name: eventtypecategory
+              Type: string
+            - Name: region
+              Type: string
+            - Name: starttime
+              Type: string
+            - Name: endtime
+              Type: string
+            - Name: lastupdatedtime
+              Type: string
+            - Name: statuscode
+              Type: string
+            - Name: eventscopecode
+              Type: string
+            - Name: details
+              Type: string
+
+  CaseMetadataTable:
+    Type: 'AWS::Glue::Table'
+    Properties:
+      DatabaseName: !Ref AthenaDatabaseName
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: 'case_metadata'
+        TableType: EXTERNAL_TABLE
+        Parameters: {"classification": "csv"}
+        StorageDescriptor:
+          Location: !Sub 's3://${ExistingDataBucketName}/metadata/'
+          InputFormat: 'org.apache.hadoop.mapred.TextInputFormat'
+          OutputFormat: 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+          SerdeInfo:
+            SerializationLibrary: 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+            Parameters:
+              'separatorChar': ','
+              'quoteChar': '"'
+          Columns:
+            - Name: account_id
+              Type: string
+            - Name: caseid
+              Type: string
+            - Name: timecreated
+              Type: string
+            - Name: severitycode
+              Type: string
+            - Name: status
+              Type: string
+            - Name: subject
+              Type: string
+            - Name: categorycode
+              Type: string
+            - Name: servicecode
+              Type: string
+
+  # Athena Views
+  
+  # Main Lambda Function and Role
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaCustomPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - athena:StartQueryExecution
+                  - athena:GetQueryExecution
+                  - athena:GetQueryResults
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetPartitions
+                  - glue:GetPartition
+                  - glue:BatchGetPartition
+                Resource:
+                  - !Sub 'arn:aws:glue:*:*:catalog'
+                  - !Sub 'arn:aws:glue:*:*:database/*'
+                  - !Sub 'arn:aws:glue:*:*:table/*/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - s3:ListBucketMultipartUploads
+                  - s3:AbortMultipartUpload
+                  - s3:PutObjectAcl
+                Resource:
+                  - !Sub 'arn:aws:s3:::${ExistingDataBucketName}'
+                  - !Sub 'arn:aws:s3:::${ExistingDataBucketName}/*'
+                  - !Sub 'arn:aws:s3:::${ExistingResultsBucketName}'
+                  - !Sub 'arn:aws:s3:::${ExistingResultsBucketName}/*'
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: '*'
+
+  QueryAggregationFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          """
+          AWS Lambda function for executing Athena queries using Bedrock for query generation.
+          """
+
+          import json
+          import os
+          import time
+          import urllib.parse
+          from typing import Any, Dict, Optional
+
+          import boto3
+          from botocore.exceptions import ClientError
+
+          # Constants
+          ATHENA_DATABASE = os.environ['ATHENA_DATABASE']
+          ATHENA_OUTPUT_S3 = os.environ['ATHENA_OUTPUT_S3']
+          BEDROCK_MODEL_ID = 'anthropic.claude-3-5-sonnet-20241022-v2:0'
+          MAX_QUERY_EXECUTION_TIME = 300  # 5 minutes timeout
+          POLL_INTERVAL = 1  # Initial polling interval in seconds
+          MAX_TOKENS = 1000
+          DEFAULT_QUERY_TYPE = 'health'
+
+          # HTTP Response Headers
+          JSON_CONTENT_TYPE = {"Content-Type": "application/json"}
+
+
+          def get_health_prompt(user_query: str) -> str:
+              """Generate prompt for health-related queries."""
+              return (
+                  "You are an SQL expert analyzing AWS health events and support cases correlation using Athena. "
+                  "REQUIRED OUTPUT FORMAT: Generate an Athena SQL query that MUST: "
+                  "1. Use this exact working pattern: "
+                  "   SELECT "
+                  "       h.service, h.region, h.statuscode, h.details, "
+                  "       c.caseid, c.subject, c.severitycode "
+                  "   FROM health_events h "
+                  "   LEFT JOIN case_metadata c "
+                  "       ON SUBSTRING(c.timecreated, 1, 10) = DATE_FORMAT(from_iso8601_timestamp(h.starttime), '%Y-%m-%d') "
+                  "   WHERE DATE(from_iso8601_timestamp(h.starttime)) = DATE '2024-09-19' "
+                  "2. DO NOT use array_agg or other complex aggregations "
+                  "3. Keep the query simple and similar to this pattern "
+                  f"Natural language request: '{user_query}' "
+                  "Return only the SQL query."
+              )
+
+
+          def get_case_prompt(user_query: str) -> str:
+              """Generate prompt for case-related queries."""
+              return (
+                  "You are an SQL expert familiar with AWS Athena. "
+                  "Using the table 'case_metadata' (fields: account_id, caseId, timeCreated, severityCode, status, subject, "
+                  "categoryCode, serviceCode), generate an Athena SQL query matching the following natural language request: '"
+                  f"{user_query}'. Important rules: "
+                  "(1) Always use the SQL LIKE operator (not '=') with wildcards ('%') when filtering the field 'serviceCode'. "
+                  "(2) Use plain string literals for date conditions (e.g., '2024-10-01') rather than TIMESTAMP literals. "
+                  "(3) Return only the SQL query without commentary. "
+                  "(4) When filtering for specific dates, use SUBSTRING(timeCreated, 1, 10) = 'YYYY-MM-DD' format. "
+                  "(5) Severity is either of the following: high, low, normal, urgent, critical. "
+                  "(6) Always use LOWER() function when matching serviceCode to ensure case-insensitive comparison. "
+                  "(7) If there is mention of UTC then (otherwise ignore this rule): you can use from_iso8601_timestamp. "
+                  "Keep it simple, dont use timezone function)"
+              )
+
+
+          def create_error_response(status_code: int, error_message: str) -> Dict:
+              """Create a standardized error response."""
+              return {
+                  "statusCode": status_code,
+                  "headers": JSON_CONTENT_TYPE,
+                  "body": json.dumps({"error": error_message})
+              }
+
+
+          def invoke_bedrock_api(prompt: str) -> Optional[str]:
+              """Invoke Bedrock API to generate SQL query."""
+              bedrock_runtime = boto3.client('bedrock-runtime')
+              system_prompt = "You are a SQL expert with extensive experience writing queries for AWS Athena."
+              combined_prompt = f"{system_prompt}\n\n{prompt}"
+              
+              body = json.dumps({
+                  "anthropic_version": "bedrock-2023-05-31",
+                  "messages": [{"role": "user", "content": combined_prompt}],
+                  "max_tokens": MAX_TOKENS,
+                  "temperature": 0.5
+              })
+
+              try:
+                  response = bedrock_runtime.invoke_model(body=body, modelId=BEDROCK_MODEL_ID)
+                  response_body = json.loads(response.get('body').read())
+                  content = response_body.get('content', '')
+                  
+                  if isinstance(content, list):
+                      parts = [item.get('text', str(item)) if isinstance(item, dict) else str(item) for item in content]
+                      content = ' '.join(parts)
+                      
+                  return content.strip()
+              except Exception as e:
+                  print("Error calling Bedrock API:", e)
+                  return None
+
+
+          def execute_athena_query(query: str) -> Dict:
+              """Execute Athena query with exponential backoff polling."""
+              athena = boto3.client('athena')
+              try:
+                  response = athena.start_query_execution(
+                      QueryString=query,
+                      QueryExecutionContext={'Database': ATHENA_DATABASE},
+                      ResultConfiguration={'OutputLocation': ATHENA_OUTPUT_S3}
+                  )
+                  query_execution_id = response['QueryExecutionId']
+                  
+                  start_time = time.time()
+                  poll_interval = POLL_INTERVAL
+
+                  while True:
+                      query_status = athena.get_query_execution(QueryExecutionId=query_execution_id)
+                      status = query_status['QueryExecution']['Status']['State']
+                      
+                      if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+                          break
+                          
+                      if time.time() - start_time > MAX_QUERY_EXECUTION_TIME:
+                          print(f"Query execution timed out after {MAX_QUERY_EXECUTION_TIME} seconds. Cancelling query.")
+                          athena.stop_query_execution(QueryExecutionId=query_execution_id)
+                          return {"error": f"Query execution timed out after {MAX_QUERY_EXECUTION_TIME} seconds"}
+                          
+                      time.sleep(min(poll_interval, 5))
+                      poll_interval *= 2
+
+                  if status == 'SUCCEEDED':
+                      return athena.get_query_results(QueryExecutionId=query_execution_id)
+                  
+                  if status == 'FAILED':
+                      state_change_reason = query_status['QueryExecution']['Status'].get('StateChangeReason', 'Unknown error')
+                      return {"error": f"Query failed: {state_change_reason}"}
+                  
+                  return {"error": "Query was cancelled"}
+                      
+              except ClientError as e:
+                  error_code = e.response['Error']['Code']
+                  error_message = e.response['Error']['Message']
+                  print(f"Athena ClientError: {error_code} - {error_message}")
+                  return {"error": f"Athena error: {error_code} - {error_message}"}
+              except Exception as e:
+                  print("Error executing Athena query:", str(e))
+                  return {"error": str(e)}
+
+
+          def lambda_handler(event: Dict, context: Any) -> Dict:
+              """Main Lambda handler function."""
+              print("Full event:", json.dumps(event))
+              
+              expected_token = os.environ.get('API_TOKEN')
+              query_params = event.get('queryStringParameters', {}) or {}
+              provided_token = query_params.get('token')
+              
+              if not provided_token or provided_token != expected_token:
+                  return create_error_response(401, "Unauthorized - Invalid token")
+
+              user_query = query_params.get('query', '')
+              if not user_query:
+                  return create_error_response(400, "No query provided in the event")
+
+              query_type = query_params.get('type', DEFAULT_QUERY_TYPE)
+              user_query = urllib.parse.unquote(user_query)
+              
+              prompt = get_case_prompt(user_query) if query_type.lower() == 'case' else get_health_prompt(user_query)
+              sql_query = invoke_bedrock_api(prompt)
+              
+              if not sql_query:
+                  return create_error_response(500, "Failed to generate SQL query from Bedrock")
+
+              athena_results = execute_athena_query(sql_query)
+              print("Final Athena Query Results:", json.dumps(athena_results))
+
+              return {
+                  "statusCode": 200,
+                  "headers": JSON_CONTENT_TYPE,
+                  "body": json.dumps({
+                      "generated_query": sql_query,
+                      "athena_results": athena_results
+                  })
+              }   
+      Runtime: python3.11
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          API_TOKEN: !GetAtt GenerateToken.Token
+          ATHENA_DATABASE: !Ref AthenaDatabaseName
+          ATHENA_OUTPUT_S3: !Sub 's3://${ExistingResultsBucketName}/results'
+
+  # API Gateway
+  HealthQueryAPI:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: 'Health Query Assistant API'
+      Description: 'API for Health Query Assistant'
+
+  QueryResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref HealthQueryAPI
+      ParentId: !GetAtt HealthQueryAPI.RootResourceId
+      PathPart: 'query'
+
+  QueryMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref HealthQueryAPI
+      ResourceId: !Ref QueryResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${QueryAggregationFunction.Arn}/invocations'
+
+  APIGatewayDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn: QueryMethod
+    Properties:
+      RestApiId: !Ref HealthQueryAPI
+      StageName: !Ref APIGatewayStageName
+
+  # Lambda Permission for API Gateway
+  LambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref QueryAggregationFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HealthQueryAPI}/*/*/*'
+
+  # Q Business Plugin
+  CaseQueryPlugin:
+    Type: 'AWS::QBusiness::Plugin'
+    Properties:
+      ApplicationId: !Ref QApplicationId
+      AuthConfiguration: 
+        NoAuthConfiguration: {}
+      DisplayName: "CaseQueryAssistant"
+      Type: "CUSTOM"
+      CustomPluginConfiguration:
+        Description: "A plugin that converts a natural language query into an Athena SQL query for case analysis"
+        ApiSchemaType: "OPEN_API_V3"
+        ApiSchema:
+          Payload: !Sub |
+            openapi: 3.0.2
+            info:
+              title: Case Query Assistant
+              description: A plugin that converts a natural language query into an Athena SQL query, executes it via AWS Athena, and returns the generated query along with the results.
+              version: 1.0.0
+            servers:
+              - url: 'https://${HealthQueryAPI}.execute-api.${AWS::Region}.amazonaws.com/${APIGatewayStageName}'
+                description: Production API Gateway endpoint
+            paths:
+              /query:
+                get:
+                  summary: Query Athena from natural language
+                  description: Converts a natural language query into an Athena SQL query, executes it in Athena, and returns both the generated query and query results.
+                  operationId: queryAthena
+                  parameters:
+                    - name: query
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                      description: The natural language query (e.g., "Show me all cases with severity high for compute service").
+                    - name: token
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                        default: "${GenerateToken.Token}"
+                      description: Authentication token for accessing the API
+                    - name: type
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                        default: "case"
+                      description: Type of query for AWS Support Case related prompts
+                  responses:
+                    '200':
+                      description: Successful query execution
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              generated_query:
+                                type: string
+                                description: The Athena SQL query generated from the natural language input.
+                              athena_results:
+                                type: object
+                                description: The results returned from Athena.
+                    '400':
+                      description: Bad request – missing or invalid query parameter.
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+                    '401':
+                      description: Unauthorized - invalid or missing token
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+                    '500':
+                      description: Internal server error.
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+
+
+  HealthQueryPlugin:
+    Type: 'AWS::QBusiness::Plugin'
+    Properties:
+      ApplicationId: !Ref QApplicationId
+      AuthConfiguration: 
+        NoAuthConfiguration: {}
+      DisplayName: "HealthQueryAssistant"
+      Type: "CUSTOM"
+      CustomPluginConfiguration:
+        Description: "A plugin that converts a natural language query into an Athena SQL query"
+        ApiSchemaType: "OPEN_API_V3"
+        ApiSchema:
+          Payload: !Sub |
+            openapi: 3.0.2
+            info:
+              title: Health Query Assistant
+              description: A plugin that converts a natural language query into an Athena SQL query, executes it via AWS Athena, and returns the generated query along with the results.
+              version: 1.0.0
+            servers:
+              - url: 'https://${HealthQueryAPI}.execute-api.${AWS::Region}.amazonaws.com/${APIGatewayStageName}'
+                description: Production API Gateway endpoint
+            paths:
+              /query:
+                get:
+                  summary: Query Athena from natural language
+                  description: Converts a natural language query into an Athena SQL query, executes it in Athena, and returns both the generated query and query results.
+                  operationId: queryAthena
+                  parameters:
+                    - name: query
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                      description: The natural language query (e.g., "Show me health events and related cases for September 19, 2024").
+                    - name: token
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                        default: "${GenerateToken.Token}"
+                      description: Authentication token for accessing the API
+                    - name: type
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+                        default: "health"
+                      description: Type of query for health API
+                  responses:
+                    '200':
+                      description: Successful query execution
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              generated_query:
+                                type: string
+                                description: The Athena SQL query generated from the natural language input.
+                              athena_results:
+                                type: object
+                                description: The results returned from Athena.
+                    '400':
+                      description: Bad request – missing or invalid query parameter.
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+                    '401':
+                      description: Unauthorized - invalid or missing token
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+                    '500':
+                      description: Internal server error.
+                      content:
+                        application/json:
+                          schema:
+                            type: object
+                            properties:
+                              error:
+                                type: string
+
+
+Outputs:
+  APIEndpoint:
+    Description: 'API Gateway endpoint URL'
+    Value: !Sub 'https://${HealthQueryAPI}.execute-api.${AWS::Region}.amazonaws.com/${APIGatewayStageName}/query'
+      
+  DataBucketName:
+    Description: 'Name of the S3 bucket for data storage'
+    Value: !Ref ExistingDataBucketName
+    
+  ResultsBucketName:
+    Description: 'Name of the S3 bucket for Athena query results'
+    Value: !Ref ExistingResultsBucketName
+
+  HealthPluginId:
+    Description: 'ID of the created Health Query Plugin'
+    Value: !Ref HealthQueryPlugin
+
+  CasePluginId:
+    Description: 'ID of the created Case Query Plugin'
+    Value: !Ref CaseQueryPlugin

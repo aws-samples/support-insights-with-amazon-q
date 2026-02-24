@@ -237,7 +237,7 @@ Resources:
           # Constants
           ATHENA_DATABASE = os.environ['ATHENA_DATABASE']
           ATHENA_OUTPUT_S3 = os.environ['ATHENA_OUTPUT_S3']
-          BEDROCK_MODEL_ID = 'anthropic.claude-3-5-sonnet-20241022-v2:0'
+          BEDROCK_MODEL_ID = 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
           MAX_QUERY_EXECUTION_TIME = 300  # 5 minutes timeout
           POLL_INTERVAL = 1  # Initial polling interval in seconds
           MAX_TOKENS = 1000
